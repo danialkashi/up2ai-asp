@@ -1,0 +1,76 @@
+@{
+    // متادیتا از محتوای زنده خوانده می‌شود (نه ثابت‌های کد) تا اگر نام یا توضیح
+    // سایت از پنل مدیریت عوض شد، عنوان تب و کارت اشتراک‌گذاری هم همان لحظه
+    // عوض شود — همان رفتار `generateMetadata` در نسخه‌ی قبلی.
+    // صفحه‌ی خطا محتوا را لود نمی‌کند (و اگر همان لود خطا داده باشد، نباید
+    // دوباره تلاش کنیم)، پس این‌جا به یک مقدار خالی برمی‌گردیم تا صفحه‌ی خطا
+    // خودش خطای دوم ندهد.
+    var c = ViewData["Content"] as Cv? ?? new Cv(null);
+    var site = c["site"];
+    var copy = c["copy"];
+    var url = site["url"].S;
+    var ogTitle = $"{site["name"]} — {site["tagline"]}";
+    var pageTitle = ViewData["Title"] as string ?? $"{site["name"]} — {copy["seo"]["titleSuffix"]}";
+    var noIndex = ViewData["NoIndex"] as bool? ?? false;
+    var keywords = string.Join(",", copy["seo"]["keywords"].Select(k => k.S));
+}<!DOCTYPE html>
+<html lang="fa" dir="rtl" class="h-full">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <meta name="color-scheme" content="light" />
+    @* پیش‌بارگذاری فونت — مهم برای شبکه‌های کند *@
+    <link rel="preload" href="~/fonts/Vazirmatn-var.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <title>@pageTitle</title>
+    @if (noIndex)
+    {
+        @* پنل هرگز نباید در نتایج جست‌وجو بیاید. کنار این، مسیر /admin در
+           robots.txt هم مسدود شده — یکی برای موتورهای مؤدب، یکی برای بقیه. *@
+        <meta name="robots" content="noindex, nofollow, nocache" />
+    }
+    else
+    {
+        <meta name="description" content="@site["description"]" />
+        <meta name="application-name" content="@site["name"]" />
+        <meta name="keywords" content="@keywords" />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="@url" />
+        <meta property="og:title" content="@ogTitle" />
+        <meta property="og:description" content="@site["description"]" />
+        <meta property="og:site_name" content="@site["name"]" />
+        <meta property="og:locale" content="fa_IR" />
+        <meta property="og:image" content="@(url)/opengraph-image.png" />
+        <meta property="og:image:type" content="image/png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="@ogTitle" />
+        <meta name="twitter:description" content="@site["description"]" />
+        <meta name="twitter:image" content="@(url)/opengraph-image.png" />
+        <meta name="twitter:image:type" content="image/png" />
+        <meta name="twitter:image:width" content="1200" />
+        <meta name="twitter:image:height" content="630" />
+    }
+    <link rel="icon" href="~/icon.svg" sizes="any" type="image/svg+xml" />
+    @await RenderSectionAsync("Head", required: false)
+</head>
+<body class="flex min-h-full flex-col">
+    <partial name="_LogoSprite" />
+    @* داده‌ی ساخت‌یافته دقیقاً همان‌جایی می‌نشیند که نسخه‌ی قبلی می‌گذاشت:
+       داخل body، بلافاصله بعد از اسپرایت لوگو. *@
+    @if (!(ViewData["NoIndex"] as bool? ?? false))
+    {
+        <partial name="_JsonLd" />
+    }
+    @* پس‌زمینه‌ی این لینک همیشه سفیدِ ثابت است، پس متنش هم یک مشکیِ ثابت است. *@
+    <a href="#main"
+       class="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-on-light">
+        @copy["header"]["skipToContent"]
+    </a>
+    @RenderBody()
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

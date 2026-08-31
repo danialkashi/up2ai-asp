@@ -1,0 +1,81 @@
+@using System.Text.Json.Nodes
+@inject Up2Ai.Services.ContentStore Store
+@{
+    // پوسته‌ی پنل مدیریت.
+    //
+    // پنل عمداً روشن است و هرگز نباید در نتایج جست‌وجو بیاید: متای noindex
+    // را لایوت اصلی از روی ViewData["NoIndex"] می‌گذارد، و کنارش مسیر
+    // /admin در robots.txt هم مسدود است.
+    Layout = "_Layout";
+    var c = (Cv)ViewData["Content"]!;
+    var authed = ViewData["Authed"] as bool? ?? false;
+    ViewData["Title"] = "پنل مدیریت";
+
+    // نوار تب‌ها: فهرست بخش‌ها مستقیم از شکل محتوا می‌آید، نه از یک لیست
+    // دستی — پس اگر بخش تازه‌ای به محتوا اضافه شود، تبش هم خودکار می‌آید.
+    var tabKeys = Store.Defaults is JsonObject defs ? defs.Select(p => p.Key).ToList() : new List<string>();
+    var path = (Context.Request.Path.Value ?? "").TrimEnd('/').ToLowerInvariant();
+    var activeTab = ViewData["ActiveTab"] as string ?? "";
+}
+
+<div class="min-h-screen bg-surface">
+    <header class="border-b border-hairline bg-ink">
+        <div class="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+            <a href="/admin" class="-my-2 flex min-h-11 items-center gap-3 py-2">
+                <partial name="_Logo" model="@(("light", "h-6 w-auto"))" />
+                <span class="text-[13px] text-on-dark-muted">پنل مدیریت</span>
+            </a>
+            <div class="flex items-center gap-2">
+                @if (authed)
+                {
+                    <a href="/admin/leads" class="inline-flex min-h-11 items-center rounded-lg px-3 text-[13px] text-on-dark-muted transition-colors hover:text-white">صندوق لید</a>
+                }
+                <a href="/" target="_blank" rel="noopener" class="inline-flex min-h-11 items-center rounded-lg px-3 text-[13px] text-on-dark-muted transition-colors hover:text-white">دیدن سایت</a>
+                @if (authed)
+                {
+                    <form method="post" asp-page="/Admin/Login" asp-page-handler="Logout">
+                        <button type="submit" class="inline-flex min-h-11 items-center rounded-lg border border-white/12 px-3 text-[13px] text-on-dark transition-colors hover:bg-white/10">خروج</button>
+                    </form>
+                }
+            </div>
+        </div>
+    </header>
+    @if (authed)
+    {
+        @* نوار تب‌ها — همه‌ی بخش‌های قابل ویرایش، همیشه در دسترس. بدون این،
+           برای رفتن از یک بخش به بخش دیگر باید هر بار به خانه‌ی پنل برگردی.
+           روی موبایل افقی اسکرول می‌شود تا تب‌ها نشکنند. *@
+        <nav aria-label="بخش‌های پنل" class="border-b border-hairline bg-card">
+            <div class="mx-auto max-w-4xl px-4 sm:px-6">
+                <ul class="-mb-px flex gap-1 overflow-x-auto">
+                    <li>
+                        <a href="/admin"
+                           aria-current="@(path == "/admin" ? "page" : null)"
+                           class="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 px-3 text-[13.5px] font-medium transition-colors @(path == "/admin" ? "border-brand text-brand-ink" : "border-transparent text-on-light-muted hover:text-on-light")">همه‌ی بخش‌ها</a>
+                    </li>
+                    @foreach (var key in tabKeys)
+                    {
+                        var meta = Up2Ai.Services.AdminLabels.Sections.TryGetValue(key, out var m)
+                            ? m : new Up2Ai.Services.AdminLabels.SectionMeta(key, "");
+                        var on = activeTab == key;
+                        <li>
+                            <a href="/admin/@key"
+                               aria-current="@(on ? "page" : null)"
+                               class="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 px-3 text-[13.5px] font-medium transition-colors @(on ? "border-brand text-brand-ink" : "border-transparent text-on-light-muted hover:text-on-light")">@meta.Title</a>
+                        </li>
+                    }
+                    <li>
+                        <a href="/admin/leads"
+                           aria-current="@(path.StartsWith("/admin/leads") ? "page" : null)"
+                           class="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 px-3 text-[13.5px] font-medium transition-colors @(path.StartsWith("/admin/leads") ? "border-brand text-brand-ink" : "border-transparent text-on-light-muted hover:text-on-light")">صندوق لید</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+    }
+    @* اسکیپ‌لینکِ لایوت ریشه به #main می‌رود، پس پنل هم باید همین لنگر را
+       داشته باشد وگرنه آن لینک این‌جا به جایی نمی‌رسد. *@
+    <main id="main" class="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+        @RenderBody()
+    </main>
+</div>

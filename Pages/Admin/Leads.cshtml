@@ -1,0 +1,82 @@
+@page "/admin/leads"
+@model Up2Ai.Pages.Admin.LeadsModel
+@using Up2Ai.Pages.Admin
+@{ Layout = "_AdminLayout"; }
+
+<div class="flex flex-col gap-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <h1 class="text-[24px] font-bold text-on-light">صندوق لید</h1>
+            <p class="mt-2 max-w-prose text-[14px] leading-[2] text-on-light-muted">
+                هر ارسال فرم تماس همین‌جا ثبت می‌شود — صرف‌نظر از این‌که راه
+                تماس مستقیمی هم پر شده باشد یا نه. چیزی گم نمی‌شود.
+            </p>
+        </div>
+        @* این یک صفحه نیست، یک مسیر دانلود فایل CSV است. *@
+        <a href="/admin/leads/export" class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-hairline bg-card px-4 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35">خروجی CSV</a>
+    </div>
+
+    <div class="flex items-center gap-2 text-[13px]">
+        <a href="/admin/leads" class="inline-flex min-h-11 items-center rounded-lg px-3 font-medium transition-colors @(!Model.OnlyUnhandled ? "bg-brand/10 text-brand-ink" : "text-on-light-muted hover:text-on-light")">همه (@Model.TotalCount)</a>
+        <a href="/admin/leads?filter=unhandled" class="inline-flex min-h-11 items-center rounded-lg px-3 font-medium transition-colors @(Model.OnlyUnhandled ? "bg-brand/10 text-brand-ink" : "text-on-light-muted hover:text-on-light")">پیگیری‌نشده (@Model.UnhandledCount)</a>
+    </div>
+
+    @if (Model.Leads.Count == 0)
+    {
+        <div class="rounded-2xl border border-dashed border-hairline bg-card px-5 py-10 text-center text-[14px] leading-[2] text-on-light-muted">
+            @(Model.OnlyUnhandled ? "همه‌ی لیدها پیگیری شده‌اند." : "هنوز هیچ لیدی ثبت نشده.")
+        </div>
+    }
+    else
+    {
+        <ul class="flex flex-col gap-3">
+            @foreach (var lead in Model.Leads)
+            {
+                <li class="rounded-2xl border bg-card p-5 transition-colors @(lead.Handled ? "border-hairline opacity-70" : "border-brand/25")">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-[15px] font-bold text-on-light">@lead.Name</span>
+                                @if (!string.IsNullOrEmpty(lead.Service))
+                                {
+                                    <span class="rounded-md bg-surface-2 px-2 py-0.5 text-[12px] text-on-light-muted">@lead.Service</span>
+                                }
+                                @if (lead.Handled)
+                                {
+                                    <span class="rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">پیگیری شد</span>
+                                }
+                                else
+                                {
+                                    <span class="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">پیگیری‌نشده</span>
+                                }
+                            </div>
+                            <p class="mt-1 text-[13px] text-on-light-muted" dir="ltr">@lead.Reach</p>
+                        </div>
+                        <span class="text-[12.5px] text-on-light-muted">@LeadsModel.FormatAt(lead.At)</span>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(lead.Business))
+                    {
+                        <p class="mt-3 text-[13.5px] text-on-light-muted">کسب‌وکار: <span class="text-on-light">@lead.Business</span></p>
+                    }
+
+                    <p class="mt-2 whitespace-pre-wrap text-[14px] leading-[1.95] text-on-light">@lead.Need</p>
+
+                    <div class="mt-4 flex items-center gap-2">
+                        <form method="post" asp-page-handler="Toggle">
+                            <input type="hidden" name="id" value="@lead.Id" />
+                            <input type="hidden" name="handled" value="@((!lead.Handled).ToString().ToLowerInvariant())" />
+                            <input type="hidden" name="filter" value="@Model.Filter" />
+                            <button type="submit" class="inline-flex min-h-11 items-center rounded-lg border border-hairline px-3 text-[13px] font-medium text-on-light transition-colors hover:border-brand/35">@(lead.Handled ? "برداشتن علامت پیگیری" : "پیگیری شد")</button>
+                        </form>
+                        <form method="post" asp-page-handler="Delete">
+                            <input type="hidden" name="id" value="@lead.Id" />
+                            <input type="hidden" name="filter" value="@Model.Filter" />
+                            <button type="submit" class="inline-flex min-h-11 items-center rounded-lg px-3 text-[13px] text-on-light-muted transition-colors hover:text-red-700">حذف</button>
+                        </form>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+</div>

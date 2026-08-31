@@ -1,0 +1,88 @@
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using System.Text.Encodings.Web
+@{
+    // داده‌ی ساخت‌یافته (JSON-LD) برای موتورهای جست‌وجو.
+    //
+    // سه تکه:
+    //   • Organization — هویت مجموعه و راه‌های تماس
+    //   • WebSite      — نام و زبان سایت
+    //   • FAQPage      — همان سؤال‌هایی که واقعاً روی صفحه دیده می‌شود
+    //
+    // نکته‌ی مهم: FAQPage فقط وقتی مجاز است که همان پرسش‌وپاسخ‌ها روی صفحه
+    // برای کاربر هم قابل دیدن باشند. این‌جا از همان محتوایی می‌آید که بخش
+    // «سؤالات متداول» رندر می‌کند، پس هرگز از آن جدا نمی‌افتد.
+    //
+    // `sameAs` فقط شبکه‌هایی را می‌آورد که واقعاً پر شده‌اند؛ لینک خالی به
+    // گوگل داده نمی‌شود.
+    var c = (Cv)ViewData["Content"]!;
+    var site = c["site"];
+    var contact = c["contact"];
+    var url = site["url"].S;
+
+    // نکته‌ی ظریف: `sameAs.Add("متن")` یک گره‌ی «سفارشی» می‌سازد که موقع
+    // سریال‌سازی به TypeInfoResolver نیاز دارد و بدون آن استثنا می‌دهد —
+    // یعنی صفحه‌ی اصلی دقیقاً وقتی خراب می‌شد که اینستاگرام یا تلگرام را در
+    // پنل پر می‌کردی. با `JsonValue.Create` گره‌ی ساده ساخته می‌شود.
+    var sameAs = new JsonArray();
+    if (contact["instagram"].HasText) sameAs.Add(JsonValue.Create($"https://instagram.com/{contact["instagram"]}"));
+    if (contact["telegram"].HasText) sameAs.Add(JsonValue.Create($"https://t.me/{contact["telegram"]}"));
+
+    var org = new JsonObject
+    {
+        ["@type"] = "Organization",
+        ["@id"] = $"{url}/#organization",
+        ["name"] = site["name"].S,
+        ["alternateName"] = site["alternateName"].S,
+        ["url"] = url,
+        ["logo"] = $"{url}/icon.svg",
+        ["image"] = $"{url}/opengraph-image.png",
+        ["description"] = site["description"].S,
+    };
+    if (sameAs.Count > 0) org["sameAs"] = sameAs;
+    if (contact["email"].HasText) org["email"] = contact["email"].S;
+
+    var mainEntity = new JsonArray();
+    foreach (var f in c["faq"]["faqs"])
+    {
+        mainEntity.Add(new JsonObject
+        {
+            ["@type"] = "Question",
+            ["name"] = f["q"].S,
+            ["acceptedAnswer"] = new JsonObject { ["@type"] = "Answer", ["text"] = f["a"].S },
+        });
+    }
+
+    var graph = new JsonArray
+    {
+        org,
+        new JsonObject
+        {
+            ["@type"] = "WebSite",
+            ["@id"] = $"{url}/#website",
+            ["url"] = url,
+            ["name"] = site["name"].S,
+            ["inLanguage"] = "fa-IR",
+            ["publisher"] = new JsonObject { ["@id"] = $"{url}/#organization" },
+        },
+        new JsonObject
+        {
+            ["@type"] = "FAQPage",
+            ["@id"] = $"{url}/#faq",
+            ["mainEntity"] = mainEntity,
+        },
+    };
+
+    var payload = new JsonObject
+    {
+        ["@context"] = "https://schema.org",
+        ["@graph"] = graph,
+    }.ToJsonString(new JsonSerializerOptions
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        // بدون این، هر گره‌ای که از کد ساخته شده باشد (نه از parse) موقع
+        // نوشتن استثنا می‌دهد. کمربند ایمنی، حتی با اصلاح بالا.
+        TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver(),
+    });
+}
+<script type="application/ld+json">@Html.Raw(payload)</script>

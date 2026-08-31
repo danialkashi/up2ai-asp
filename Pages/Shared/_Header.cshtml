@@ -1,0 +1,59 @@
+@{
+    // ────────────────────────────────────────────────────────────────────
+    // هدر — پورت Header.tsx.
+    //
+    // sticky (نه fixed): هدر در جریان عادی صفحه فضای خودش را اشغال می‌کند،
+    // پس هرگز روی محتوای زیرش نمی‌افتد.
+    //
+    // این کامپوننت در React دو state داشت که هر دو به wwwroot/js/site.js
+    // منتقل می‌شوند؛ این‌جا فقط حالتِ اولیه‌ی سرور رندر می‌شود — همان چیزی
+    // که Next.js هم در HTML اول می‌فرستاد:
+    //
+    //   ۱) scrolled=false ⇒ نوارِ داخلی با «border-b border-transparent
+    //      bg-transparent». وقتی window.scrollY > 8 شد، جاوااسکریپت باید
+    //      این دو کلاس را با «border-white/10 bg-ink/85 backdrop-blur-xl
+    //      backdrop-saturate-150» عوض کند (سه کلاس اولِ آن div — یعنی
+    //      h-full w-full transition-colors duration-300 — ثابت می‌مانند).
+    //      قلاب: header > div  (کلاس/شناسه‌ی تازه‌ای اضافه نشده تا خروجی
+    //      بایت‌به‌بایت با Next.js یکی بماند).
+    //
+    //   ۲) open=false ⇒ دکمه‌ی همبرگری با aria-expanded="false"،
+    //      aria-controls="mobile-menu" و aria-label = copy.header.openMenu.
+    //      خودِ اورلیِ منوی موبایل در React هم فقط سمت کلاینت رندر می‌شد،
+    //      پس در HTML مرجع نیست و این‌جا هم ساخته نمی‌شود.
+    // ────────────────────────────────────────────────────────────────────
+    var c = (Cv)ViewData["Content"]!;
+    var site = c["site"];
+    var nav = c["navItems"];
+    var h = c["copy"]["header"];
+    var logoAria = $"{site["name"]} — {h["homeAria"]}";
+    var ctaHref = site["cta"]["href"].S;
+}<header class="sticky top-0 z-50 h-[var(--header-h)]">
+    <div class="h-full w-full transition-colors duration-300 border-b border-transparent bg-transparent">
+        <nav class="mx-auto flex h-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6" aria-label="@h["navAria"]">
+            @* لوگو — بدون فاصله‌ی متنی داخل <a>، چون a اینلاین است *@
+            <a href="#top" class="-my-2 shrink-0 rounded-lg py-2" aria-label="@logoAria"><partial name="_Logo" model="@(("light", "h-7 w-auto sm:h-8"))" /></a>
+
+            @* منوی دسکتاپ — وسط‌چین بین لوگو و CTA *@
+            <ul class="hidden flex-1 items-center justify-center gap-1 md:flex">
+                @foreach (var item in nav)
+                {
+                    <li><a href="@item["href"]" class="relative rounded-lg px-3.5 py-[11px] text-[15px] font-medium text-on-dark/80 transition-colors hover:text-white">@item["label"]</a></li>
+                }
+            </ul>
+
+            @* CTA + دکمه‌ی منوی موبایل *@
+            <div class="flex shrink-0 items-center gap-2">
+                <a href="@ctaHref" class="hidden rounded-xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-4 py-3 text-[14px] font-medium text-white shadow-[0_6px_20px_-6px_rgba(99,102,241,0.7)] transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_-8px_rgba(168,85,247,0.8)] sm:inline-block">@site["cta"]["label"]</a>
+
+                <button type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="@h["openMenu"]" class="grid h-11 w-11 place-items-center rounded-xl border border-white/12 bg-white/5 text-on-dark transition-colors hover:bg-white/10 md:hidden">
+                    @* BurgerIcon در حالت بسته. باز که شد جاوااسکریپت باید:
+                       d مسیر اول → "M5 5 L15 15"، style مسیر دوم → opacity:0،
+                       d مسیر سوم → "M15 5 L5 15"، و aria-label دکمه →
+                       copy.header.closeMenu. *@
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 6 H17" class="transition-[d] duration-200"></path><path d="M3 10 H17" style="opacity:1" class="transition-opacity duration-200"></path><path d="M3 14 H17" class="transition-[d] duration-200"></path></svg>
+                </button>
+            </div>
+        </nav>
+    </div>
+</header>

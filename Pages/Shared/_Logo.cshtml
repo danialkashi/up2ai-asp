@@ -1,0 +1,34 @@
+@model object
+@{
+    // ────────────────────────────────────────────────────────────────────
+    // لوگوی UP2AI (نماد + وردمارک) — پورت `Logo` از Logo.tsx.
+    //
+    // مدل (شکل رسمی):  (string Variant, string Class)
+    //     <partial name="_Logo" model="@(("light", "h-7 w-auto sm:h-8"))" />
+    //
+    // برای سازگاری، رشته‌ی تنها هم پذیرفته می‌شود (فقط Variant):
+    //     <partial name="_Logo" model="@("light")" />
+    //
+    // Variant خالی یا هرچیزی جز "light" ⇒ مشکیِ برند — دقیقاً همان منطقِ
+    // wordFill در نسخه‌ی React.  Class خالی ⇒ "h-8 w-auto" (پیش‌فرضِ همان
+    // کامپوننت).
+    //
+    // اعداد viewBox/x/y/width/height همان ثابت‌های LOGO در LogoSprite.tsx
+    // هستند؛ در React هم compile-time بودند، پس این‌جا عیناً درج شده‌اند.
+    // ────────────────────────────────────────────────────────────────────
+    string logoVariant = "dark";
+    string logoClass = "h-8 w-auto";
+    switch (Model)
+    {
+        case string v:
+            logoVariant = v;
+            break;
+        case ValueTuple<string, string> t:
+            logoVariant = t.Item1;
+            logoClass = t.Item2;
+            break;
+    }
+    if (string.IsNullOrEmpty(logoVariant)) { logoVariant = "dark"; }
+    if (string.IsNullOrEmpty(logoClass)) { logoClass = "h-8 w-auto"; }
+    var wordFill = logoVariant == "light" ? "#FFFFFF" : "#18181B";
+}<svg viewBox="0 0 1041 195" class="@logoClass" role="img" aria-label="UP2AI"><use href="#u2-mark" x="0" y="0" width="415" height="195" fill="url(#u2-grad)"></use><use href="#u2-up2" x="444" y="40.5" width="400" height="114" fill="@wordFill"></use><use href="#u2-ai" x="856" y="40.5" width="185" height="114" fill="url(#u2-grad)"></use></svg>

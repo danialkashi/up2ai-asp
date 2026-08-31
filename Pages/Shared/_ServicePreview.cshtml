@@ -1,0 +1,48 @@
+@model object
+@{
+    // ────────────────────────────────────────────────────────────────────
+    // پورت `ServicePreview` از ServicePreview.tsx.
+    //
+    // پیش‌نمایش خروجی هر خدمت — جایگزین آیکون بالای کارت. کاملاً تزئینی
+    // است (aria-hidden)، چون متن معادلش در تیتر و نکات همان کارت هست.
+    //
+    // مدل: نوع پیش‌نمایش — یکی از "directMessage" | "lead" | "handoff".
+    // هم رشته پذیرفته می‌شود هم یک مقدار Cv (مثلاً کلید preview هر خدمت).
+    //
+    // نوع ناشناخته ⇒ فقط قابِ خالی؛ دقیقاً مثل نسخه‌ی React که هیچ‌کدام از
+    // سه شرطش برقرار نمی‌شود.
+    // ────────────────────────────────────────────────────────────────────
+    var c = (Cv)ViewData["Content"]!;
+    var pc = c["previewCopy"];
+
+    // مدل می‌تواند دو شکل داشته باشد و هر دو پذیرفته می‌شوند:
+    //   • خودِ رشته‌ی نوع پیش‌نمایش  → model="@agent["preview"]"
+    //   • کل آیتم خدمت (یک شیء)      → model="@agent"  (کلید preview خوانده می‌شود)
+    string kind = Model switch
+    {
+        string s => s,
+        Cv v => v.HasText ? v.S : v["preview"].S,
+        _ => Model?.ToString() ?? "",
+    };
+
+    var dm = pc["directMessage"];
+    var ld = pc["lead"];
+    var hd = pc["handoff"];
+}
+@* حداقل ارتفاع ثابت است تا تیتر هر سه کارت روی یک خط بنشیند؛ بدون آن،
+   بلندترین پیش‌نمایش بقیه را ۳۰ پیکسل پایین می‌اندازد. *@
+<div aria-hidden="true" class="relative min-h-[176px] select-none overflow-hidden rounded-xl border border-hairline bg-surface-2 p-3.5">@if (kind == "directMessage")
+{
+    // اینستاگرام — یک رفت‌وبرگشت واقعی در دایرکت.
+    <div class="flex flex-col gap-2"><span class="inline-flex items-center gap-1.5 rounded-md bg-card px-2 py-1 text-[10.5px] font-medium text-on-light-muted"><span class="inline-block size-1.5 rounded-full bg-brand/60"></span>@dm["source"]</span><p class="max-w-[86%] self-start rounded-xl rounded-se-sm bg-card px-2.5 py-1.5 text-[11.5px] leading-[1.7] text-on-light">@dm["customer"]</p><p class="max-w-[86%] self-end rounded-xl rounded-ee-sm bg-brand/[0.09] px-2.5 py-1.5 text-[11.5px] leading-[1.7] text-on-light">@dm["agent"]</p><span class="self-end text-[10px] text-on-light-muted">@dm["timing"]</span></div>
+}
+else if (kind == "lead")
+{
+    // فروش — لیدی که ثبت و زمان‌بندی شده.
+    <div class="flex flex-col gap-2"><span class="inline-flex items-center gap-1.5 rounded-md bg-card px-2 py-1 text-[10.5px] font-medium text-on-light-muted"><span class="inline-block size-1.5 rounded-full bg-brand/60"></span>@ld["source"]</span><div class="rounded-xl bg-card px-2.5 py-2"><div class="flex items-center justify-between gap-2"><span class="text-[11.5px] font-medium text-on-light">@ld["name"]</span><span class="rounded-md bg-brand/[0.09] px-1.5 py-0.5 text-[10px] font-medium text-brand-ink">@ld["stage"]</span></div><p class="mt-1 text-[10.5px] leading-[1.7] text-on-light-muted">@ld["detail"]</p></div><div class="flex items-center gap-1.5 text-[10.5px] text-on-light-muted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="size-2.5 shrink-0 text-brand"><path d="m4.5 12.5 4.5 4.5L19.5 6.5"></path></svg>@ld["followUp"]</div></div>
+}
+else if (kind == "handoff")
+{
+    // پشتیبانی — تفکیک «خودش جواب داد» از «به آدم ارجاع داد».
+    <div class="flex flex-col gap-2"><span class="inline-flex items-center gap-1.5 rounded-md bg-card px-2 py-1 text-[10.5px] font-medium text-on-light-muted"><span class="inline-block size-1.5 rounded-full bg-brand/60"></span>@hd["source"]</span><div class="flex flex-col gap-1.5 rounded-xl bg-card px-2.5 py-2"><div class="flex items-center gap-1.5 text-[11px] leading-[1.7] text-on-light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="size-2.5 shrink-0 text-brand"><path d="m4.5 12.5 4.5 4.5L19.5 6.5"></path></svg>@hd["resolved"]</div><span class="h-px bg-hairline"></span><div class="flex items-center gap-1.5 text-[11px] leading-[1.7] text-on-light-muted"><span class="inline-block size-2.5 shrink-0 rounded-full border border-dashed border-on-light-muted/60"></span>@hd["escalated"]</div></div><span class="text-[10px] text-on-light-muted">@hd["note"]</span></div>
+}</div>

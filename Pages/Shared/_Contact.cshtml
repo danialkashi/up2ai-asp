@@ -1,0 +1,180 @@
+@model Up2Ai.Pages.IndexModel
+@{
+    var c = (Cv)ViewData["Content"]!;
+    var cc = c["copy"]["contact"];
+    var contact = c["contact"];
+
+    // «آیا راه تماس مستقیمی داریم» — عیناً همان شرطِ نسخه‌ی ری‌اکت (واتساپ یا
+    // تلگرام یا ایمیل)، از محتوای زنده حساب می‌شود نه از یک ثابت.
+    var hasDirectContact = contact["whatsapp"].HasText
+        || contact["telegram"].HasText
+        || contact["email"].HasText;
+
+    // مقادیر فرم برای نمایش دوباره بعد از POST ناموفق. اگر خالی باشند،
+    // ویژگی‌ی value اصلاً چاپ نمی‌شود تا خروجی با رندر اولیه یکی بماند.
+    var vName = Model.Name ?? "";
+    var vReach = Model.Reach ?? "";
+    var vBusiness = Model.Business ?? "";
+    var vService = Model.Service ?? "";
+    var vNeed = Model.Need ?? "";
+
+    Model.FieldErrors.TryGetValue("name", out var eName);
+    Model.FieldErrors.TryGetValue("reach", out var eReach);
+    Model.FieldErrors.TryGetValue("business", out var eBusiness);
+    Model.FieldErrors.TryGetValue("need", out var eNeed);
+
+    // معادل سمت سرورِ فوکوسِ ری‌اکت روی اولین فیلد ایراددار: چون بعد از POST
+    // صفحه از نو بارگذاری می‌شود، تنها راهِ بدون‌جاوااسکریپت `autofocus` است.
+    var focus = eName != null ? "name" : eReach != null ? "reach" : eNeed != null ? "need" : null;
+
+    // همان کلاس‌های `Field` در نسخه‌ی ری‌اکت، با همان ترتیب.
+    Func<bool, bool, string> fieldCls = (hasError, isTextarea) => string.Join(" ", new[]
+    {
+        "w-full rounded-xl border bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors placeholder:text-on-light-muted",
+        hasError ? "border-red-400 focus:border-red-500" : "border-hairline focus:border-brand",
+        isTextarea ? "min-h-28 resize-y leading-[1.9]" : "min-h-11",
+    });
+
+    // aria-describedby = «شناسه‌ی راهنما» + «شناسه‌ی خطا»؛ اگر هیچ‌کدام نبود null
+    // تا Razor خودِ ویژگی را حذف کند.
+    Func<string, bool, string?, string?> describedBy = (n, hasHint, err) =>
+    {
+        var ids = new List<string>();
+        if (hasHint) ids.Add($"{n}-hint");
+        if (err != null) ids.Add($"{n}-error");
+        return ids.Count > 0 ? string.Join(" ", ids) : null;
+    };
+
+    var services = cc["services"];
+    var selectedService = vService.Length > 0 ? vService : services[0].S;
+
+    // پیام آماده‌ی واتساپ — همان متنی که نسخه‌ی ری‌اکت بعد از ارسال باز می‌کرد.
+    // این‌جا فقط به‌صورت یک لینکِ قابل کلیک نشان داده می‌شود (بدون باز کردن
+    // خودکار، چون آن کار جاوااسکریپت لازم داشت).
+    string? waPrefilled = null;
+    if (Model.Submitted && contact["whatsapp"].HasText)
+    {
+        var mf = cc["messageFields"];
+        var lines = new List<string>
+        {
+            cc["messageTitle"].S,
+            $"{mf["name"].S}: {vName}",
+            $"{mf["reach"].S}: {vReach}",
+        };
+        if (vBusiness.Length > 0) lines.Add($"{mf["business"].S}: {vBusiness}");
+        lines.Add($"{mf["service"].S}: {vService}");
+        lines.Add($"{mf["need"].S}: {vNeed}");
+        waPrefilled = $"https://wa.me/{contact["whatsapp"].S}?text={Uri.EscapeDataString(string.Join("\n", lines))}";
+    }
+}
+@* بخش تماس و رزرو مشاوره — مقصد همه‌ی CTAهای سایت.
+
+   تفاوت با نسخه‌ی ری‌اکت: آن‌جا فرم با Server Action و state سمت کلاینت
+   فرستاده می‌شد؛ این‌جا یک POST معمولی به همین صفحه است. سه حالتِ رندر:
+     • عادی (GET یا بعد از خطای اعتبارسنجی) → فرم
+     • Model.Submitted → حالت موفقیت
+     • Model.FormError → جعبه‌ی خطا زیر دکمه، فرم با مقادیر قبلی *@
+<section id="contact" class="border-b border-hairline bg-surface">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24 lg:py-28">
+        <div class="grid gap-10 lg:grid-cols-[1fr_1.15fr] lg:gap-14">
+            @* ستون معرفی *@
+            <div>
+                <span class="inline-flex items-center rounded-full border border-brand/20 bg-brand/[0.06] px-3 py-1 text-[13px] font-medium text-brand-ink">@cc["eyebrow"]</span>
+                <h2 class="mt-5 text-[1.75rem] font-bold leading-[1.45] tracking-tight text-on-light sm:text-[2.25rem]">@cc["heading"]</h2>
+                <p class="mt-4 text-[15px] leading-[2] text-on-light-muted sm:text-[16px]">@cc["lead"]</p>
+                <ul class="mt-7 flex flex-col gap-3">@foreach (var t in cc["assurances"]){<li class="flex gap-2.5 text-[14px] leading-[1.85] text-on-light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="mt-[7px] h-3 w-3 shrink-0 text-brand"><path d="m4.5 12.5 4.5 4.5L19.5 6.5"></path></svg><span>@t</span></li>}</ul>
+                @if (hasDirectContact)
+                {
+                    <div class="mt-8 flex flex-wrap gap-3">@if (contact["whatsapp"].HasText){<a href="https://wa.me/@contact["whatsapp"]" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-hairline bg-card px-4 py-2.5 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] text-brand"><path d="M3.5 20.5 4.8 16A8.2 8.2 0 1 1 8 19.2l-4.5 1.3Z"></path><path d="M9 8.6c.3-.1.6 0 .8.3l.7 1.2c.2.3.1.6-.1.8l-.5.5c-.2.2-.2.4-.1.6.4.8 1.2 1.6 2 2 .2.1.4 0 .6-.1l.5-.5c.2-.2.5-.3.8-.1l1.2.7c.3.2.4.5.3.8-.2.7-.9 1.2-1.7 1.2-2.6 0-5.6-3-5.6-5.6 0-.8.4-1.5 1.1-1.8Z"></path></svg>@cc["whatsappCta"]</a>}@if (contact["telegram"].HasText){<a href="https://t.me/@contact["telegram"]" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-hairline bg-card px-4 py-2.5 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] text-brand"><path d="M21 4.5 2.9 11.3c-.7.3-.7 1.3.1 1.5l4.6 1.4 1.8 5c.2.6 1 .8 1.4.3l2.4-2.6 4.6 3.4c.6.4 1.4.1 1.6-.6L21.8 5.6c.2-.8-.6-1.4-1.3-1.1Z"></path><path d="m7.6 14.2 10.6-7.4-6.4 8.5"></path></svg>@cc["telegramCta"]</a>}</div>
+                }
+                else
+                {
+                    // جمله یک رشته‌ی کامل در محتواست تا از پنل مدیریت قابل ویرایش
+                    // بماند؛ فقط جای {file} با نام فایل پر می‌شود.
+                    var parts = cc["missingContactNote"].S.Split("{file}");
+                    <p class="mt-8 rounded-xl border border-dashed border-hairline bg-card px-4 py-3 text-[13px] leading-[1.9] text-on-light-muted">@for (var i = 0; i < parts.Length; i++){ if (i > 0){<code class="text-brand-ink">@cc["missingContactFile"]</code>} <text>@parts[i]</text> }</p>
+                }
+            </div>
+
+            @* فرم *@
+            <div class="rounded-2xl border border-hairline bg-card p-6 sm:p-8">
+                @if (Model.Submitted)
+                {
+                    <div class="flex h-full flex-col items-start justify-center gap-3 py-8">
+                        <span class="grid h-11 w-11 place-items-center rounded-full bg-brand/[0.08] text-brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-5 w-5"><path d="m4.5 12.5 4.5 4.5L19.5 6.5"></path></svg></span>
+                        <h3 class="text-[18px] font-bold text-on-light">@cc["sentTitle"]</h3>
+                        <p class="text-[14px] leading-[1.95] text-on-light-muted">@cc["sentNote"]</p>
+                        @if (waPrefilled != null)
+                        {
+                            // همان پیام آماده‌ی نسخه‌ی ری‌اکت — این‌جا به‌جای باز شدن
+                            // خودکار، لینکی که کاربر خودش کلیک می‌کند.
+                            <a href="@waPrefilled" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-hairline bg-card px-4 py-2.5 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] text-brand"><path d="M3.5 20.5 4.8 16A8.2 8.2 0 1 1 8 19.2l-4.5 1.3Z"></path><path d="M9 8.6c.3-.1.6 0 .8.3l.7 1.2c.2.3.1.6-.1.8l-.5.5c-.2.2-.2.4-.1.6.4.8 1.2 1.6 2 2 .2.1.4 0 .6-.1l.5-.5c.2-.2.5-.3.8-.1l1.2.7c.3.2.4.5.3.8-.2.7-.9 1.2-1.7 1.2-2.6 0-5.6-3-5.6-5.6 0-.8.4-1.5 1.1-1.8Z"></path></svg>@cc["whatsappCta"]</a>
+                        }
+                        @* در نسخه‌ی ری‌اکت این یک دکمه بود که state را به idle برمی‌گرداند؛
+                           بدون جاوااسکریپت، رفتنِ دوباره به همین صفحه با GET همان کار را
+                           می‌کند (فرمِ خالی از نو رندر می‌شود). *@
+                        <a href="@Url.Page("/Index")" class="mt-2 inline-flex min-h-11 items-center rounded-xl border border-hairline px-4 py-2.5 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35">@cc["sendAnother"]</a>
+                    </div>
+                }
+                else
+                {
+                    <form method="post" novalidate>
+                        <div class="flex flex-col gap-5">
+                            <div class="flex flex-col gap-2">
+                                <label for="name" class="text-[14px] font-medium text-on-light">@cc["nameLabel"]</label>
+                                <input id="name" type="text" aria-invalid="@(eName != null ? "true" : null)" aria-describedby="@describedBy("name", false, eName)" class="@fieldCls(eName != null, false)" autocomplete="name" name="Name" value="@(vName.Length > 0 ? vName : null)" autofocus="@(focus == "name" ? "autofocus" : null)" />
+                                @if (eName != null)
+                                {
+                                    <p id="name-error" class="text-[13px] text-red-700">@eName</p>
+                                }
+                            </div>
+
+                            <div class="flex flex-col gap-2">
+                                <label for="reach" class="text-[14px] font-medium text-on-light">@cc["reachLabel"]<span id="reach-hint" class="ms-2 font-normal text-on-light-muted">— @cc["reachHint"]</span></label>
+                                <input id="reach" type="text" aria-invalid="@(eReach != null ? "true" : null)" aria-describedby="@describedBy("reach", true, eReach)" class="@fieldCls(eReach != null, false)" inputmode="tel" name="Reach" value="@(vReach.Length > 0 ? vReach : null)" autofocus="@(focus == "reach" ? "autofocus" : null)" />
+                                @if (eReach != null)
+                                {
+                                    <p id="reach-error" class="text-[13px] text-red-700">@eReach</p>
+                                }
+                            </div>
+
+                            <div class="flex flex-col gap-2">
+                                <label for="business" class="text-[14px] font-medium text-on-light">@cc["businessLabel"]<span id="business-hint" class="ms-2 font-normal text-on-light-muted">— @cc["businessHint"]</span></label>
+                                <input id="business" type="text" aria-invalid="@(eBusiness != null ? "true" : null)" aria-describedby="@describedBy("business", true, eBusiness)" class="@fieldCls(eBusiness != null, false)" name="Business" value="@(vBusiness.Length > 0 ? vBusiness : null)" />
+                                @if (eBusiness != null)
+                                {
+                                    <p id="business-error" class="text-[13px] text-red-700">@eBusiness</p>
+                                }
+                            </div>
+
+                            <div class="flex flex-col gap-2">
+                                <label for="service" class="text-[14px] font-medium text-on-light">@cc["serviceLabel"]</label>
+                                <select id="service" name="Service" class="min-h-11 rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors focus:border-brand">@foreach (var s in services){ var v = s.S; if (v == selectedService){<option value="@v" selected="">@v</option>} else {<option value="@v">@v</option>} }</select>
+                            </div>
+
+                            <div class="flex flex-col gap-2">
+                                <label for="need" class="text-[14px] font-medium text-on-light">@cc["needLabel"]<span id="need-hint" class="ms-2 font-normal text-on-light-muted">— @cc["needHint"]</span></label>
+                                <textarea id="need" name="Need" rows="4" aria-invalid="@(eNeed != null ? "true" : null)" aria-describedby="@describedBy("need", true, eNeed)" class="@fieldCls(eNeed != null, true)" autofocus="@(focus == "need" ? "autofocus" : null)">@vNeed</textarea>
+                                @if (eNeed != null)
+                                {
+                                    <p id="need-error" class="text-[13px] text-red-700">@eNeed</p>
+                                }
+                            </div>
+                        </div>
+
+                        <button type="submit" class="group mt-7 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-6 py-3.5 text-[15px] font-medium text-white shadow-[0_10px_30px_-10px_rgba(99,102,241,0.7)] transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-70">@cc["submit"]<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] transition-transform duration-200 group-hover:-translate-x-1"><path d="M19 12H5"></path><path d="m11 6-6 6 6 6"></path></svg></button>
+
+                        <p aria-live="polite" class="sr-only"></p>
+
+                        @if (Model.FormError != null)
+                        {
+                            <p role="alert" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] leading-[1.9] text-red-800">@Model.FormError</p>
+                        }
+
+                        <p class="mt-4 text-[12.5px] leading-[1.9] text-on-light-muted">@cc["privacyNote"]</p>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</section>

@@ -1,0 +1,37 @@
+@page "/admin/login"
+@model Up2Ai.Pages.Admin.LoginModel
+@{ Layout = "_AdminLayout"; }
+
+@if (!Model.Configured)
+{
+    <partial name="_AdminSetupNeeded" model="Model.MissingConfig" />
+}
+else
+{
+    <form method="post" class="mx-auto flex max-w-sm flex-col gap-4 rounded-2xl border border-hairline bg-card p-6 sm:p-8">
+        <h1 class="text-[20px] font-bold text-on-light">ورود به پنل</h1>
+
+        @* فیلد پنهانِ نام کاربری: پنل فقط یک حساب دارد، ولی بدون این فیلد
+           مرورگر و رمزدان هشدار دسترس‌پذیری می‌دهند و رمز را درست ذخیره
+           نمی‌کنند. *@
+        <input type="text" name="username" value="admin" readonly hidden autocomplete="username" />
+
+        <div class="flex flex-col gap-1.5">
+            <label for="password" class="text-[13px] font-medium text-on-light">رمز</label>
+            <input id="password" name="password" type="password" required autofocus autocomplete="current-password"
+                   aria-invalid="@(Model.Error is not null ? "true" : null)"
+                   aria-describedby="@(Model.Error is not null ? "login-error" : null)"
+                   class="min-h-11 rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors focus:border-brand"
+                   dir="ltr" />
+        </div>
+
+        @if (Model.Error is not null)
+        {
+            <p id="login-error" role="alert" class="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] leading-[1.9] text-red-800">@Model.Error</p>
+        }
+
+        <button type="submit" class="min-h-11 rounded-xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-5 py-2.5 text-[14px] font-medium text-white disabled:opacity-60">ورود</button>
+
+        <p class="text-[12px] leading-[1.9] text-on-light-muted">بعد از پنج تلاش ناموفق، ورود ده دقیقه قفل می‌شود.</p>
+    </form>
+}

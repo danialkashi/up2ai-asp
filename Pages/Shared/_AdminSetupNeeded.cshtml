@@ -1,0 +1,26 @@
+@model List<string>
+@* پیام «پنل هنوز راه‌اندازی نشده» — وقتی متغیرهای محیطی رمز تنظیم نشده‌اند.
+   عمداً هیچ رمز پیش‌فرضی وجود ندارد، پس تا تنظیم نشدنشان حتی فرم ورود هم
+   نشان داده نمی‌شود. *@
+<div class="rounded-2xl border border-hairline bg-card p-6 sm:p-8">
+    <h1 class="text-[20px] font-bold text-on-light">پنل هنوز راه‌اندازی نشده</h1>
+    <p class="mt-3 text-[14px] leading-[2] text-on-light-muted">
+        عمداً هیچ رمز پیش‌فرضی وجود ندارد. تا وقتی این متغیرها تنظیم نشوند،
+        پنل حتی فرم ورود هم نشان نمی‌دهد:
+    </p>
+    <ul class="mt-4 flex flex-col gap-1.5">
+        @foreach (var m in Model)
+        {
+            <li><code class="text-[13px] text-brand-ink">@m</code></li>
+        }
+    </ul>
+    <p class="mt-5 text-[14px] leading-[2] text-on-light">
+        این دستور را در پوشه‌ی پروژه اجرا کن، رمز خودت را بزن، و دو خطی که
+        چاپ می‌کند را در فایل <code class="text-brand-ink">.env</code> بگذار:
+    </p>
+    <pre dir="ltr" class="mt-3 overflow-x-auto rounded-xl bg-surface-2 px-4 py-3 text-[13px] text-on-light">dotnet run -- hash-password</pre>
+    <p class="mt-4 text-[13px] leading-[1.95] text-on-light-muted">
+        بعدش برنامه را دوباره اجرا کن. رمز فقط دست خودت است — نه در کد
+        ذخیره می‌شود، نه من آن را می‌بینم.
+    </p>
+</div>
