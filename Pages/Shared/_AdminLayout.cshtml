@@ -8,11 +8,9 @@
     // را لایوت اصلی از روی ViewData["NoIndex"] می‌گذارد، و کنارش مسیر
     // /admin در robots.txt هم مسدود است.
     //
-    // ناوبری: نسخه‌ی قبلی یک نوار تب افقی با سیزده تب بود که روی هر عرضی
-    // می‌شکست و خواندنش سخت بود. حالا فهرست بخش‌ها در ستون کناری و
-    // *گروه‌بندی‌شده* است — پس هم جا برای نام کامل هست، هم معلوم است هر
-    // بخش به کدام قسمت سایت مربوط می‌شود. روی موبایل همان فهرست داخل یک
-    // منوی تاشو می‌آید (بدون جاوااسکریپت، با <details>).
+    // ناوبری = یک نوار تب افقی زیر هدر، در همه‌ی عرض‌ها یکسان. (ستون کناری
+    // امتحان شد و کنار گذاشته شد: در پنجره‌های باریک یا با زوم مرورگر اصلاً
+    // ظاهر نمی‌شد و کاربر با دو ناوبری متفاوت روبه‌رو می‌شد.)
     Layout = "_Layout";
     var c = (Cv)ViewData["Content"]!;
     var authed = ViewData["Authed"] as bool? ?? false;
@@ -23,19 +21,11 @@
     var available = Store.Defaults is JsonObject defs ? defs.Select(p => p.Key).ToList() : new List<string>();
     var path = (Context.Request.Path.Value ?? "").TrimEnd('/').ToLowerInvariant();
     var activeTab = ViewData["ActiveTab"] as string ?? "";
-    var onLeads = path.StartsWith("/admin/leads");
-    var onHome = path == "/admin";
-
-    // عنوانی که در دکمه‌ی منوی موبایل نشان داده می‌شود
-    var currentTitle = onLeads ? "صندوق لید"
-        : onHome ? "خانه‌ی پنل"
-        : activeTab.Length > 0 ? AdminLabels.MetaFor(activeTab).Title
-        : "پنل مدیریت";
 }
 
 <div class="min-h-screen bg-surface">
     <header class="border-b border-hairline bg-ink">
-        <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+        <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
             <a href="/admin" class="-my-2 flex min-h-11 items-center gap-3 py-2">
                 <partial name="_Logo" model="@(("light", "h-6 w-auto"))" />
                 <span class="hidden text-[13px] text-on-dark-muted sm:inline">پنل مدیریت</span>
@@ -55,37 +45,22 @@
         </div>
     </header>
 
-    @* ستون‌بندی فقط وقتی معنی دارد که ستون کناری هست. صفحه‌ی ورود سایدبار
-       ندارد، و اگر گرید بماند، خودِ فرمِ ورود در ستون ۱۵rem می‌افتد. *@
-    <div class="mx-auto max-w-6xl gap-8 px-4 py-6 sm:px-6 lg:py-10 @(authed ? "lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]" : "")">
-        @if (authed)
-        {
-            @* ---------------- منوی موبایل: همان فهرست، تاشو ---------------- *@
-            <details class="mb-6 rounded-xl border border-hairline bg-card lg:hidden">
-                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[14px] font-medium text-on-light">
-                    <span>
-                        <span class="text-[12px] font-normal text-on-light-muted">الان این‌جایی:</span>
-                        @currentTitle
-                    </span>
-                    <span aria-hidden="true" class="text-[12px] text-on-light-muted">تغییر بخش ▾</span>
-                </summary>
-                <nav aria-label="بخش‌های پنل" class="border-t border-hairline px-2 py-2">
-                    <partial name="_AdminNav" model="@(new AdminNavModel(available, activeTab, onHome, onLeads))" />
-                </nav>
-            </details>
+    @if (authed)
+    {
+        <nav aria-label="بخش‌های پنل" class="sticky top-0 z-40 border-b border-hairline bg-card">
+            <div class="relative mx-auto max-w-5xl px-4 sm:px-6">
+                <partial name="_AdminNav" model="@(new AdminNavModel(available, activeTab, path == "/admin", path.StartsWith("/admin/leads")))" />
+                @* محو‌شدگی لبه‌ی چپ: در عرض‌های کم که نوار اسکرول می‌شود، نشان
+                   می‌دهد ادامه دارد. جایی که اسکرول لازم نیست، روی زمینه‌ی
+                   خالی می‌افتد و دیده نمی‌شود. *@
+                <span aria-hidden="true" class="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-l from-transparent to-card"></span>
+            </div>
+        </nav>
+    }
 
-            @* -------------------- سایدبار دسکتاپ -------------------- *@
-            <aside class="hidden lg:block">
-                <nav aria-label="بخش‌های پنل" class="sticky top-6 flex flex-col gap-1">
-                    <partial name="_AdminNav" model="@(new AdminNavModel(available, activeTab, onHome, onLeads))" />
-                </nav>
-            </aside>
-        }
-
-        @* اسکیپ‌لینکِ لایوت ریشه به #main می‌رود، پس پنل هم باید همین لنگر را
-           داشته باشد وگرنه آن لینک این‌جا به جایی نمی‌رسد. *@
-        <main id="main" class="min-w-0 @(authed ? "" : "mx-auto max-w-2xl")">
-            @RenderBody()
-        </main>
-    </div>
+    @* اسکیپ‌لینکِ لایوت ریشه به #main می‌رود، پس پنل هم باید همین لنگر را
+       داشته باشد وگرنه آن لینک این‌جا به جایی نمی‌رسد. *@
+    <main id="main" class="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+        @RenderBody()
+    </main>
 </div>

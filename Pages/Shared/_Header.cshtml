@@ -35,10 +35,14 @@
             <a href="#top" class="-my-2 shrink-0 rounded-lg py-2" aria-label="@logoAria"><partial name="_Logo" model="@(("light", "h-7 w-auto sm:h-8"))" /></a>
 
             @* منوی دسکتاپ — وسط‌چین بین لوگو و CTA *@
-            <ul class="hidden flex-1 items-center justify-center gap-1 md:flex">
+            @* `shrink-0` و `whitespace-nowrap` عمدی‌اند: بدون آن‌ها اگر از پنل
+               آیتم ششم و هفتم به منو اضافه شود، آیتم‌ها جمع می‌شوند و متنشان
+               وسط کلمه می‌شکند. با این‌ها منو در بدترین حالت افقی اسکرول
+               می‌شود و چیدمان هدر سالم می‌ماند. *@
+            <ul class="no-scrollbar hidden min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto md:flex">
                 @foreach (var item in nav)
                 {
-                    <li><a href="@item["href"]" class="relative rounded-lg px-3.5 py-[11px] text-[15px] font-medium text-on-dark/80 transition-colors hover:text-white">@item["label"]</a></li>
+                    <li class="shrink-0"><a href="@item["href"]" class="relative rounded-lg px-3.5 py-[11px] text-[15px] font-medium whitespace-nowrap text-on-dark/80 transition-colors hover:text-white">@item["label"]</a></li>
                 }
             </ul>
 

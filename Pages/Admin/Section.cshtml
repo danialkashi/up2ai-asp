@@ -39,13 +39,21 @@
             // موردِ تازه‌ای که هنوز پر نشده باید «خالی» به نظر برسد، نه این‌که
             // شناسه‌ی فنی‌اش را به‌عنوان نام نشان بدهد.
             foreach (var pair in o)
-                if (!AdminLabels.ReadOnlyKeys.Contains(pair.Key)
+                if (!AdminLabels.LockedKeys.Contains(pair.Key)
                     && pair.Value is JsonValue any && any.TryGetValue<string>(out var av) && av.Length > 0) return av;
         }
         return "";
     }
 
     static string LastKey(string path) => path[(path.LastIndexOf('.') + 1)..];
+
+    // ترتیب فیلدهای داخل کارتِ یک مورد: اول چیزی که «اسمِ» آن مورد است،
+    // بعد بقیه‌ی متن‌ها، و آخر از همه فهرست‌های انتخابی. بدون این، کارتِ خدمات
+    // با «تصویر بالای کارت» شروع می‌شد و عنوان می‌افتاد وسط.
+    static int FieldRank(string key) =>
+        key is "title" or "q" or "label" or "tab" or "heading" or "name" or "text" ? 0
+        : Up2Ai.Services.AdminLabels.IsChoice(key) ? 2
+        : 1;
 
     static string InputClass(bool changed, bool multiline) =>
         "w-full rounded-xl border bg-surface px-3.5 py-2.5 text-[14px] leading-[1.9] text-on-light outline-none transition-colors focus:border-brand "
@@ -84,21 +92,45 @@
         {
             var dval = def is JsonValue dv && dv.TryGetValue<string>(out var ds) ? ds : "";
             var id = "f-" + path.Replace('.', '-');
-            var changed = sval != dval;
+            // «تغییر کرده» فقط وقتی معنی دارد که پیش‌فرضی برای مقایسه باشد.
+            // موردی که کاربر خودش اضافه کرده پیش‌فرض ندارد.
+            var changed = def is not null && sval != dval;
             var hint = AdminLabels.HintFor(key);
 
-            // فیلدهای گره‌خورده به کد اصلاً جعبه‌ی ورودی نمی‌گیرند: جعبه‌ی
-            // خاکستریِ غیرقابل‌تایپ فقط کاربر را سرگردان می‌کرد.
-            if (AdminLabels.ReadOnlyKeys.Contains(key))
+            // شناسه‌ی فنی: کاربر هرگز نمی‌بیندش. فقط پنهانی در فرم می‌ماند تا
+            // مرتب‌سازی و افزودن، شناسه‌ها را قاطی نکند.
+            if (AdminLabels.HiddenKeys.Contains(key))
             {
-                @* مقدار در فرم می‌ماند تا مرتب‌سازی و افزودن، شناسه‌ها را جابه‌جا
-                   نکند؛ سرور فقط مقدارهای شناخته‌شده را می‌پذیرد. *@
                 <input type="hidden" name="@("f:" + path)" value="@sval" />
-                <p class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-surface-2 px-3 py-2 text-[12.5px] text-on-light-muted">
-                    <span class="font-medium text-on-light">@AdminLabels.LabelFor(key):</span>
-                    <code dir="ltr" class="rounded bg-card px-1.5 py-0.5">@(sval.Length > 0 ? sval : "—")</code>
-                    <span>ثابت است — این مقدار به کد گره خورده و از پنل عوض نمی‌شود.</span>
-                </p>
+                return;
+            }
+
+            // فیلدهایی که سایت فقط چند حالتِ مشخص را برایشان بلد است، فهرست
+            // انتخابی می‌گیرند — نه جعبه‌ی قفل‌شده‌ی مرموز.
+            if (AdminLabels.IsChoice(key))
+            {
+                var options = AdminLabels.Options[key];
+                <div class="flex flex-col gap-1.5">
+                    <label for="@id" class="flex flex-wrap items-center gap-2 text-[13px] font-medium text-on-light">
+                        @AdminLabels.LabelFor(key)
+                        @if (changed)
+                        {
+                            <span class="rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-normal text-brand-ink">تغییر کرده</span>
+                        }
+                    </label>
+                    @if (hint.Length > 0)
+                    {
+                        <p id="@(id)-hint" class="text-[12px] leading-[1.85] text-on-light-muted">@hint</p>
+                    }
+                    <select id="@id" name="@("f:" + path)"
+                            aria-describedby="@(hint.Length > 0 ? id + "-hint" : null)"
+                            class="@InputClass(changed, false)">
+                        @foreach (var opt in options)
+                        {
+                            <option value="@opt.Key" selected="@(opt.Key == sval)">@opt.Value</option>
+                        }
+                    </select>
+                </div>
                 return;
             }
 
@@ -165,9 +197,12 @@
                     <button type="submit" formnovalidate
                             formaction="@($"/admin/{sec}?handler=List&op=add&path={Uri.EscapeDataString(path)}&index=0")"
                             disabled="@(!hasTemplate)"
-                            title="@(!hasTemplate ? "الگویی برای آیتم تازه وجود ندارد" : "یک مورد خالی به انتهای فهرست اضافه می‌کند")"
+                            title="@(!hasTemplate ? "الگویی برای آیتم تازه وجود ندارد" : $"یک مورد خالی به انتهای فهرست «{AdminLabels.LabelFor(key)}» اضافه می‌کند")"
                             class="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-hairline px-3.5 py-1.5 text-[13px] text-on-light transition-colors hover:border-brand/35 disabled:opacity-40">
-                        <span aria-hidden="true">＋</span> افزودن مورد
+                        @* نام فهرست داخل دکمه می‌آید: در کارت‌هایی که خودشان
+                           فهرست تودرتو دارند، دو دکمه‌ی «افزودن» کنار هم بود و
+                           معلوم نبود کدام به کدام فهرست اضافه می‌کند. *@
+                        <span aria-hidden="true">＋</span> افزودن به «@AdminLabels.LabelFor(key)»
                     </button>
                 </div>
 
@@ -187,14 +222,19 @@
                     @for (var i = 0; i < arr.Count; i++)
                     {
                         var item = arr[i];
-                        var itemDef = i < defArr.Count ? defArr[i] : (defArr.Count > 0 ? defArr[0] : null);
+                        @* موردی که کاربر خودش اضافه کرده «پیش‌فرض» ندارد؛ اگر
+                           پیش‌فرضِ مورد اول را به آن نسبت بدهیم، همه‌ی فیلدهای
+                           خالی‌اش برچسب «تغییر کرده» می‌گیرند که بی‌معنی است. *@
+                        var itemDef = i < defArr.Count ? defArr[i] : null;
                         var itemPath = $"{path}.{i}";
                         var label = Summarize(item);
                         var isBlank = label.Length == 0;
+                        var isNew = Model.NewItemPath == itemPath;
+                        var anchor = "item-" + itemPath.Replace('.', '-');
 
                         if (simple)
                         {
-                            <li class="flex items-start gap-2">
+                            <li id="@anchor" class="flex items-start gap-2 @(isNew ? "rounded-xl bg-brand/[0.06] p-1.5" : "")">
                                 <span class="mt-3 w-5 shrink-0 text-[12px] text-on-light-muted">@(i + 1).</span>
                                 <span class="min-w-0 flex-1">
                                     <input name="@("f:" + itemPath)" type="text" dir="auto"
@@ -207,13 +247,17 @@
                         }
                         else
                         {
-                            <li class="rounded-xl border border-hairline bg-card p-3.5">
+                            <li id="@anchor" class="rounded-xl border bg-card p-3.5 @(isNew ? "border-brand/50 ring-2 ring-brand/15" : "border-hairline")">
                                 <div class="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-hairline pb-2.5">
                                     <span class="flex min-w-0 items-center gap-2">
                                         <span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-surface-2 text-[12px] font-bold text-on-light-muted">@(i + 1)</span>
                                         <span class="truncate text-[13px] font-medium @(isBlank ? "text-on-light-muted" : "text-on-light")">
                                             @(isBlank ? "مورد تازه — هنوز پر نشده" : label)
                                         </span>
+                                        @if (isNew)
+                                        {
+                                            <span class="shrink-0 rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-normal text-brand-ink">تازه اضافه شد</span>
+                                        }
                                     </span>
                                     @{ await Controls(path, i, arr.Count); }
                                 </div>
@@ -233,8 +277,9 @@
             // ریشه‌ی بخش، یا فیلدهای داخل یک کارتِ فهرست: بدون قاب اضافه.
             if (depth == 0 || bare)
             {
+                var pairs = bare ? obj.OrderBy(p => FieldRank(p.Key)).ToList() : obj.ToList();
                 <div class="flex flex-col gap-4">
-                    @foreach (var pair in obj)
+                    @foreach (var pair in pairs)
                     {
                         await Node(pair.Value, defObj.TryGetPropertyValue(pair.Key, out var d) ? d : null, $"{path}.{pair.Key}", depth + 1, false);
                     }
@@ -314,6 +359,59 @@
         }
     </div>
 
+    @* --------- پیش‌نمایش «هویت سایت» ---------
+       این بخش تنها بخشی است که بیشترِ فیلدهایش روی خودِ صفحه دیده نمی‌شوند.
+       بدون این پیش‌نمایش، «دیدن روی سایت» کاربر را به صفحه‌ی اصلی می‌برد و
+       او هر چه می‌گشت این متن‌ها را پیدا نمی‌کرد. *@
+    @if (sec == "site" && Model.Working is JsonObject siteObj)
+    {
+        Func<string, string> V = k => siteObj[k] is JsonValue sv && sv.TryGetValue<string>(out var s) ? s : "";
+        var siteName = V("name");
+        var suffix = Model.C["copy"]["seo"]["titleSuffix"].S;
+        var fullTitle = suffix.Length > 0 ? $"{siteName} — {suffix}" : siteName;
+        var shareTitle = V("tagline").Length > 0 ? $"{siteName} — {V("tagline")}" : siteName;
+
+        <section class="rounded-xl border border-hairline bg-card p-4 sm:p-5">
+            <h2 class="text-[13.5px] font-bold text-on-light">این متن‌ها دقیقاً کجا دیده می‌شوند</h2>
+            <p class="mt-1 text-[12px] leading-[1.85] text-on-light-muted">
+                پیش‌نمایش از آخرین حالتِ <b>ذخیره‌شده</b> ساخته می‌شود — بعد از زدن «ذخیره‌ی تغییرات» به‌روز می‌شود.
+            </p>
+
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                    <p class="mb-1.5 text-[12px] font-medium text-on-light-muted">۱. عنوان تب مرورگر</p>
+                    <div class="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2">
+                        <span aria-hidden="true" class="h-3 w-3 shrink-0 rounded-sm bg-brand/40"></span>
+                        <span class="truncate text-[12.5px] text-on-light">@fullTitle</span>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="mb-1.5 text-[12px] font-medium text-on-light-muted">۲. نتیجه‌ی گوگل</p>
+                    <div class="rounded-lg border border-hairline px-3 py-2.5">
+                        <p dir="ltr" class="truncate text-[11.5px] text-emerald-700">@V("url")</p>
+                        <p class="mt-0.5 text-[14px] leading-[1.7] text-blue-700">@fullTitle</p>
+                        <p class="mt-0.5 line-clamp-2 text-[12px] leading-[1.8] text-on-light-muted">@V("description")</p>
+                    </div>
+                </div>
+
+                <div class="sm:col-span-2">
+                    <p class="mb-1.5 text-[12px] font-medium text-on-light-muted">۳. وقتی لینک سایت را در واتساپ یا تلگرام می‌فرستی</p>
+                    <div class="rounded-lg border border-hairline px-3 py-2.5">
+                        <p class="text-[13px] font-bold text-on-light">@shareTitle</p>
+                        <p class="mt-0.5 text-[12px] leading-[1.8] text-on-light-muted">@V("description")</p>
+                        <p dir="ltr" class="mt-1 truncate text-[11.5px] text-on-light-muted">@V("url")</p>
+                    </div>
+                </div>
+            </div>
+
+            <p class="mt-4 border-t border-hairline pt-3 text-[12px] leading-[1.9] text-on-light-muted">
+                روی <b>خودِ صفحه</b> فقط دو تای این‌ها دیده می‌شوند: «توضیح» که در پاورقی زیر لوگو می‌آید،
+                و «متن دکمه‌ی اصلی» که همان دکمه‌ی بنفشِ بالای صفحه است.
+            </p>
+        </section>
+    }
+
     @* ------------------------- پیام‌های وضعیت ------------------------- *@
     @if (Model.Saved is not null)
     {
@@ -324,6 +422,14 @@
     @if (Model.Error is not null)
     {
         <p class="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-[13.5px] leading-[1.9] text-red-800">@Model.Error</p>
+    }
+    @if (Model.NewItemPath is not null)
+    {
+        <p class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/[0.05] px-4 py-3 text-[13.5px] leading-[1.9] text-on-light">
+            <span>یک مورد خالی به <b>انتهای</b> فهرست «@Model.NewItemListLabel» اضافه شد. پرش کن و بعد «ذخیره‌ی تغییرات» را بزن.</span>
+            <a href="#@("item-" + Model.NewItemPath.Replace('.', '-'))"
+               class="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-hairline bg-card px-3.5 text-[13px] font-medium text-on-light transition-colors hover:border-brand/35">رفتن به موردِ تازه ↓</a>
+        </p>
     }
     @if (Model.Rejected.Count > 0)
     {

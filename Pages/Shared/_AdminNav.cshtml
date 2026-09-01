@@ -1,42 +1,48 @@
 @model Up2Ai.Services.AdminNavModel
 @using Up2Ai.Services
 @{
-    // فهرست بخش‌های پنل، گروه‌بندی‌شده.
+    // نوار تب‌های پنل — یک ردیف افقی، همیشه یک خط.
     //
-    // چرا گروه‌بندی: یازده بخشِ هم‌سطح، هرچقدر هم خوش‌نام باشند، فهرستی
-    // می‌سازند که باید *خوانده* شود. با سه گروه، کاربر اول تصمیم می‌گیرد
-    // «دنبال محتوام یا متن ثابت؟» و بعد بین سه چهار گزینه انتخاب می‌کند.
+    // نسخه‌ی اول این نوار می‌شکست چون تب‌ها flex-item بودند و اجازه داشتند
+    // جمع شوند؛ متنِ داخلشان سه خط می‌شد. کلید حل: `shrink-0` روی هر تب،
+    // و اسکرول افقیِ خودِ ردیف. اسم‌های کوتاه (AdminLabels.Short) هم برای
+    // همین است که در عرض معمول اصلاً نیازی به اسکرول نشود.
+    //
+    // بین گروه‌ها یک خط جداکننده هست تا سه دسته‌ی «پایه / بخش‌های صفحه /
+    // متن‌ها» بدون اشغال فضای اضافه از هم تفکیک شوند.
 }
 
 @functions {
-    string ItemClass(bool on) =>
-        "flex min-h-11 items-center justify-between gap-2 rounded-lg px-3 py-2 text-[13.5px] leading-[1.7] transition-colors "
+    string TabClass(bool on) =>
+        "inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-2 px-3 text-[13.5px] font-medium transition-colors "
         + (on
-            ? "bg-brand/10 font-bold text-brand-ink"
-            : "text-on-light-muted hover:bg-surface-2 hover:text-on-light");
+            ? "border-brand text-brand-ink"
+            : "border-transparent text-on-light-muted hover:text-on-light");
 }
 
-<a href="/admin" class="@ItemClass(Model.OnHome)">
-    <span>خانه‌ی پنل</span>
-    <span aria-hidden="true" class="text-[12px] opacity-60">همه‌ی بخش‌ها</span>
-</a>
+<ul class="no-scrollbar -mb-px flex items-stretch gap-0.5 overflow-x-auto">
+    <li class="shrink-0">
+        <a href="/admin" aria-current="@(Model.OnHome ? "page" : null)" class="@TabClass(Model.OnHome)">خانه‌ی پنل</a>
+    </li>
 
-@foreach (var group in AdminLabels.Groups)
-{
-    var keys = AdminLabels.SectionsInGroup(group.Key, Model.Available).ToList();
-    if (keys.Count == 0) { continue; }
-
-    <p class="mt-3 mb-1 border-t border-hairline px-3 pt-3.5 text-[11.5px] font-bold text-on-light-muted/80">@group.Title</p>
-    @foreach (var key in keys)
+    @foreach (var group in AdminLabels.Groups)
     {
-        var meta = AdminLabels.MetaFor(key);
-        <a href="/admin/@key"
-           aria-current="@(Model.ActiveTab == key ? "page" : null)"
-           class="@ItemClass(Model.ActiveTab == key)">@meta.Title</a>
-    }
-}
+        var keys = AdminLabels.SectionsInGroup(group.Key, Model.Available).ToList();
+        if (keys.Count == 0) { continue; }
 
-<p class="mt-4 mb-1 px-3 text-[11.5px] font-bold text-on-light-muted/80">درخواست‌ها</p>
-<a href="/admin/leads"
-   aria-current="@(Model.OnLeads ? "page" : null)"
-   class="@ItemClass(Model.OnLeads)">صندوق لید</a>
+        <li aria-hidden="true" class="flex shrink-0 items-center px-1.5"><span class="h-4 w-px bg-hairline"></span></li>
+        foreach (var key in keys)
+        {
+            var meta = AdminLabels.MetaFor(key);
+            var on = Model.ActiveTab == key;
+            <li class="shrink-0">
+                <a href="/admin/@key" title="@meta.Title" aria-current="@(on ? "page" : null)" class="@TabClass(on)">@meta.TabTitle</a>
+            </li>
+        }
+    }
+
+    <li aria-hidden="true" class="flex shrink-0 items-center px-1.5"><span class="h-4 w-px bg-hairline"></span></li>
+    <li class="shrink-0">
+        <a href="/admin/leads" aria-current="@(Model.OnLeads ? "page" : null)" class="@TabClass(Model.OnLeads)">صندوق لید</a>
+    </li>
+</ul>

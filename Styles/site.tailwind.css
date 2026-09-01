@@ -90,6 +90,16 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* نوارهای افقیِ قابل اسکرول (منوی بالای سایت، تب‌های پنل) بدون نمایش
+   اسکرول‌بار. اسکرول کار می‌کند؛ فقط میله‌اش دیده نمی‌شود. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Persian digits & proper number rendering inside RTL text */
 .num {
   font-feature-settings: "ss01";

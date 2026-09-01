@@ -40,6 +40,17 @@ public class SectionModel : AdminPageModel
     public string? Error { get; private set; }
     public List<string> Rejected { get; private set; } = new();
 
+    /// <summary>
+    /// مسیر موردی که همین الان اضافه شد — تا ویو بتواند رویش تأکید کند و
+    /// لینک «برو به موردِ تازه» بدهد. بدون این، مورد تازه به انتهای فهرست
+    /// می‌رفت و کاربر که وسط صفحه ایستاده بود فکر می‌کرد چیزی اضافه نشده
+    /// یا جای اشتباهی اضافه شده.
+    /// </summary>
+    public string? NewItemPath { get; private set; }
+
+    /// <summary>نام فارسی فهرستی که موردِ تازه به آن اضافه شد.</summary>
+    public string? NewItemListLabel { get; private set; }
+
     /// <summary>آیا مقدار فعلی با پیش‌فرض فرق دارد؟ (برای فعال بودن دکمه‌ی بازگشت به پیش‌فرض)</summary>
     public bool ChangedFromDefault => Working.ToJsonString() != Defaults.ToJsonString();
 
@@ -140,6 +151,8 @@ public class SectionModel : AdminPageModel
                         var fresh = BlankLike(template);
                         EnsureUniqueId(fresh, arr);
                         arr.Add(fresh);
+                        NewItemPath = $"{path}.{arr.Count - 1}";
+                        NewItemListLabel = AdminLabels.LabelFor(path[(path.LastIndexOf('.') + 1)..]);
                     }
                     break;
 
@@ -222,7 +235,7 @@ public class SectionModel : AdminPageModel
                 // با آیتم اول یکی می‌شود. پس مقدارِ فرم فقط وقتی پذیرفته می‌شود
                 // که از فهرست مقدارهای شناخته‌شده باشد؛ هر چیز دیگری نادیده
                 // گرفته می‌شود و پیش‌فرض سر جایش می‌ماند.
-                if (AdminLabels.ReadOnlyKeys.Contains(key))
+                if (AdminLabels.LockedKeys.Contains(key))
                 {
                     var locked = Request.Form[$"f:{path}"].ToString();
                     return locked.Length > 0 && IsAllowedLocked(key, locked)
@@ -272,7 +285,7 @@ public class SectionModel : AdminPageModel
         if (_lockedVocab is null)
         {
             _lockedVocab = new Dictionary<string, HashSet<string>>();
-            foreach (var k in AdminLabels.ReadOnlyKeys)
+            foreach (var k in AdminLabels.LockedKeys)
                 _lockedVocab[k] = new HashSet<string>(StringComparer.Ordinal);
             CollectLocked(Store.Defaults, _lockedVocab);
         }
@@ -345,7 +358,7 @@ public class SectionModel : AdminPageModel
             // بی‌تصویر و بی‌شناسه رندر شود. مقدار الگو را می‌گیرند و شناسه
             // بعداً یکتا می‌شود.
             outObj[pair.Key] = pair.Value is null ? null
-                : AdminLabels.ReadOnlyKeys.Contains(pair.Key) ? pair.Value.DeepClone()
+                : AdminLabels.LockedKeys.Contains(pair.Key) ? pair.Value.DeepClone()
                 : BlankLike(pair.Value);
         }
         return outObj;
