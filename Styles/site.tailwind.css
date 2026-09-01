@@ -1,0 +1,277 @@
+/* ---------------------------------------------------------------------------
+   منبعِ CSS سایت. خروجیِ کامپایل‌شده در wwwroot/css/site.css می‌نشیند.
+
+   برای ساخت دوباره (فقط وقتی کلاس تازه‌ای به .cshtml اضافه شده):
+
+       npx @tailwindcss/cli@4 -i Styles/site.tailwind.css -o wwwroot/css/site.css --minify
+
+   اجرای خود سایت به این فایل یا به Node نیازی ندارد — فقط خروجیِ ساخته‌شده
+   لازم است، و آن در مخزن هست.
+--------------------------------------------------------------------------- */
+
+@import "tailwindcss";
+
+/* جایی که کلاس‌ها از آن خوانده می‌شوند */
+@source "../Pages/**/*.cshtml";
+@source "../wwwroot/js/*.js";
+
+/* ---------- Vazirmatn (self-hosted، variable، subset فارسی + لاتین) ----------
+   یک فایل ۵۷ کیلوبایتی که تمام وزن‌های ۴۰۰ تا ۷۰۰ را پوشش می‌دهد —
+   به‌جای سه فایل جدا. هیچ درخواستی به Google Fonts زده نمی‌شود
+   (برای دسترس‌پذیری پایدار از داخل ایران). */
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("/fonts/Vazirmatn-var.woff2") format("woff2-variations"),
+    url("/fonts/Vazirmatn-var.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Design tokens (UP2AI) ---------- */
+@theme {
+  --font-sans: "Vazirmatn", ui-sans-serif, system-ui, "Segoe UI", Tahoma, sans-serif;
+
+  /* Brand */
+  --color-brand: #6366f1; /* ایندیگو */
+  --color-brand-2: #a855f7; /* بنفش */
+  --color-brand-soft: #818cf8;
+  /* نسخه‌ی تیره‌تر برند، فقط برای دکمه‌های پر. متن سفید روی #6366F1 نسبت
+     کنتراست ۴.۴ و روی #A855F7 نسبت ۳.۵ می‌دهد که هر دو زیر حد WCAG AA
+     هستند؛ این دو مقدار ۵.۷ تا ۶.۳ می‌دهند و همان خانواده‌ی رنگی می‌مانند. */
+  --color-brand-deep: #4f46e5;
+  --color-brand-2-deep: #7c3aed;
+  /* متنِ رنگیِ برند روی برچسب‌های کوچک (eyebrow، شماره‌ی مراحل، …). */
+  --color-brand-ink: #4338ca;
+
+  /* Dark surface (hero / footer / هدرِ پنل) — بدون تغییر */
+  --color-ink: #0a0a0f;
+  --color-ink-2: #101018;
+  --color-on-dark: #e4e4e7;
+  --color-on-dark-muted: #a1a1aa;
+
+  /* Light surfaces (بدنه‌ی سایت، زیر هیرو) */
+  --color-surface: #fafafa;
+  /* یک پله روشن‌تر از سفید، برای تناوب بخش‌ها */
+  --color-surface-2: #f1f1f8;
+  /* سطح «برجسته» برای کارت‌ها — سفیدِ خالص تا از surface جدا دیده شود */
+  --color-card: #ffffff;
+  --color-on-light: #18181b;
+  --color-on-light-muted: #52525b;
+  --color-hairline: #e4e4e7;
+
+  /* Layout */
+  --header-h: 68px;
+}
+
+/* ---------- Base ---------- */
+:root {
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    scroll-behavior: auto;
+  }
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-on-light);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Persian digits & proper number rendering inside RTL text */
+.num {
+  font-feature-settings: "ss01";
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Sticky-header offset for in-page anchors — prevents the header
+   from covering the top of a section when jumping to #services etc. */
+[id] {
+  scroll-margin-top: calc(var(--header-h) + 16px);
+}
+
+/* Consistent, visible focus ring for keyboard users */
+:focus-visible {
+  outline: 2px solid var(--color-brand-soft);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-brand) 35%, transparent);
+}
+
+/* Utility: gradient text */
+.text-gradient {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-brand-soft) 0%,
+    var(--color-brand-2) 55%,
+    #c084fc 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- انیمیشن مدار هیرو (CSS، روی GPU) ---------- */
+@keyframes up2ai-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.orbit-spin {
+  animation-name: up2ai-spin;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@keyframes up2ai-core {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(129, 140, 248, 0.28),
+      0 0 44px -10px rgba(99, 102, 241, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 14px rgba(129, 140, 248, 0),
+      0 0 64px -6px rgba(168, 85, 247, 0.6);
+  }
+}
+
+.core-pulse {
+  animation: up2ai-core 3.6s ease-in-out infinite;
+}
+
+/* احترام به تنظیم «کاهش حرکت» سیستم کاربر */
+@media (prefers-reduced-motion: reduce) {
+  .orbit-spin,
+  .core-pulse {
+    animation: none !important;
+  }
+}
+
+/* در حالت High Contrast ویندوز پس‌زمینه‌ها حذف می‌شوند و متنی که رنگش
+   transparent است ناپدید می‌شود؛ این بلوک آن را برمی‌گرداند. */
+@media (forced-colors: active) {
+  .text-gradient {
+    background-image: none;
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+  }
+}
+
+/* ---------- گذار نرم از هیروی تیره به بدنه‌ی روشن ---------- */
+/*
+  چرا ماسک و نه گرادیانت مستقیم: اگر یک گرادیانت روی محتوا بکشیم، عملاً
+  یک پرده روی همه‌چیز می‌افتد. این‌جا به‌جای آن، خودِ لایه‌ی تیره‌ی هیرو با
+  `mask-image` شفاف می‌شود و رنگِ سکشنِ بعدی از زیرش بیرون می‌زند.
+
+  دو چیز باعث می‌شود گذار «تند» حس شود، و هر دو این‌جا تنظیم شده‌اند:
+
+  ۱) طول نوار. با ۱۲۰ پیکسل، روشنایی حدود ۰٫۸ واحد L* در هر پیکسل بالا
+     می‌رفت؛ با سرعت اسکرول معمولی یعنی کل تغییر در حدود دو دهم ثانیه
+     اتفاق می‌افتاد. حالا ۲۶۰ پیکسل (روی موبایل ۱۸۰) است.
+
+  ۲) اختلاف دو سر. رفتن از تقریباً مشکی به تقریباً سفید در یک قدم، هر
+     چقدر هم نرم باشد، برای چشم تند است. برای همین گذار روی
+     `--color-surface-2` فرود می‌آید و آن رنگ در ۳۲۰ پیکسل ابتدای بخش
+     بعدی به سفیدِ بدنه می‌رسد. یعنی پرش در دو مرحله پخش شده.
+
+  منحنی ماسک از روی محاسبه به‌دست آمده، نه با حدس. حدس اولیه («تیرگی
+  را نگه دار، بعد سریع رها کن») دقیقاً برعکسِ درست بود: چون ترکیب آلفا
+  در فضای sRGB خطی است ولی چشم روشنایی را غیرخطی می‌بیند، آن منحنی کل
+  تغییرِ محسوس را در یک‌سومِ پایانی فشرده می‌کرد. آلفاهای زیر طوری حساب
+  شده‌اند که روشناییِ ادراکی (*L) در طول نوار یکنواخت بالا برود —
+  اندازه‌گیری‌شده: بیشترین نرخ ۰٫۴ به‌جای ۱٫۰ واحد *L بر پیکسل.
+*/
+.hero-dark {
+  --hero-fade: 180px;
+  --hero-mask: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--hero-fade)),
+    rgb(0 0 0 / 0.887) calc(100% - var(--hero-fade) * 0.875),
+    rgb(0 0 0 / 0.779) calc(100% - var(--hero-fade) * 0.75),
+    rgb(0 0 0 / 0.663) calc(100% - var(--hero-fade) * 0.625),
+    rgb(0 0 0 / 0.54) calc(100% - var(--hero-fade) * 0.5),
+    rgb(0 0 0 / 0.412) calc(100% - var(--hero-fade) * 0.375),
+    rgb(0 0 0 / 0.279) calc(100% - var(--hero-fade) * 0.25),
+    rgb(0 0 0 / 0.142) calc(100% - var(--hero-fade) * 0.125),
+    rgb(0 0 0 / 0) 100%
+  );
+  mask-image: var(--hero-mask);
+  -webkit-mask-image: var(--hero-mask);
+}
+
+@media (min-width: 640px) {
+  .hero-dark {
+    --hero-fade: 260px;
+  }
+}
+
+/* هاله‌ی بنفشِ بسیار کم‌رنگ در خودِ نوار گذار، تا میانه‌ی محوشدن
+   خاکستریِ خنثی نخواند. */
+.hero-seam {
+  height: calc(var(--hero-fade, 180px) * 1.5);
+  background: linear-gradient(
+    to top,
+    rgb(99 102 241 / 0) 0%,
+    rgb(99 102 241 / 0.05) 40%,
+    rgb(129 140 248 / 0.06) 72%,
+    rgb(129 140 248 / 0) 100%
+  );
+}
+
+/* ادامه‌ی گذار در بخش بعدی: از رنگِ فرود (surface-2) به سفیدِ بدنه (surface). */
+.surface-landing {
+  background-image: linear-gradient(
+    to bottom,
+    var(--color-surface-2) 0,
+    var(--color-surface) 320px
+  );
+}
+
+
+
+/* ---------- دموی ایجنت ---------- */
+/* پیام‌ها و اقدام‌ها با تأخیر پلکانی وارد می‌شوند. تأخیر هر آیتم به‌صورت
+   inline ست می‌شود؛ خودِ حرکت این‌جاست تا در جاوااسکریپت تایمر نداشته باشیم. */
+@keyframes demo-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+[data-demo="in"] {
+  animation: demo-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-demo="in"] {
+    animation: none;
+  }
+}

@@ -3,22 +3,23 @@
 @using Up2Ai.Services
 @{ Layout = "_AdminLayout"; }
 
-<div class="flex flex-col gap-6">
+<div class="flex flex-col gap-8">
     <div>
         <h1 class="text-[24px] font-bold text-on-light">محتوای سایت</h1>
-        <p class="mt-2 text-[14px] leading-[2] text-on-light-muted">
+        <p class="mt-2 max-w-prose text-[14px] leading-[2] text-on-light-muted">
             هر تغییری که ذخیره کنی بلافاصله روی سایت دیده می‌شود — بدون بیلد
-            گرفتن. اگر جایی را خراب کردی، دکمه‌ی «بازگشت به پیش‌فرض» همان بخش
-            همه‌چیز را برمی‌گرداند.
+            گرفتن. تا وقتی «ذخیره» نزنی هیچ‌چیز روی سایت نمی‌رود، و اگر جایی را
+            خراب کردی، دکمه‌ی «بازگشت به متن پیش‌فرض» همان بخش همه‌چیز را
+            برمی‌گرداند.
         </p>
     </div>
 
-    <a href="/admin/leads" class="flex items-center justify-between rounded-2xl border border-brand/25 bg-brand/[0.04] p-5 transition-colors hover:border-brand/45">
+    <a href="/admin/leads" class="flex items-center justify-between gap-4 rounded-2xl border border-brand/25 bg-brand/[0.04] p-5 transition-colors hover:border-brand/45">
         <div>
             <span class="text-[15px] font-bold text-on-light">صندوق لید</span>
             <p class="mt-1 text-[13px] leading-[1.9] text-on-light-muted">
                 @(Model.LeadCount == 0
-                    ? "هنوز هیچ لیدی ثبت نشده."
+                    ? "هنوز هیچ لیدی ثبت نشده. هر فرمی که از سایت پر شود این‌جا می‌آید."
                     : $"{Model.LeadCount} لید ثبت‌شده، {Model.UnhandledLeads} تای آن پیگیری‌نشده.")
             </p>
         </div>
@@ -36,22 +37,43 @@
         </p>
     }
 
-    <ul class="grid gap-3 sm:grid-cols-2">
-        @foreach (var key in Model.SectionKeys)
-        {
-            var meta = AdminLabels.Sections.TryGetValue(key, out var m) ? m : new AdminLabels.SectionMeta(key, "");
-            <li>
-                <a href="/admin/@key" class="flex h-full flex-col rounded-2xl border border-hairline bg-card p-5 transition-colors hover:border-brand/35">
-                    <span class="flex items-center gap-2">
-                        <span class="text-[15px] font-bold text-on-light">@meta.Title</span>
-                        @if (Model.IsEdited(key))
-                        {
-                            <span class="rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] text-brand-ink">ویرایش‌شده</span>
-                        }
-                    </span>
-                    <span class="mt-2 text-[13px] leading-[1.95] text-on-light-muted">@meta.Note</span>
-                </a>
-            </li>
-        }
-    </ul>
+    @* بخش‌ها گروه‌بندی‌شده — دقیقاً همان گروه‌بندیِ ستون کناری، تا کاربر
+       یک نقشه‌ی ذهنی داشته باشد نه دو تا. *@
+    @foreach (var group in AdminLabels.Groups)
+    {
+        var keys = AdminLabels.SectionsInGroup(group.Key, Model.SectionKeys).ToList();
+        if (keys.Count == 0) { continue; }
+
+        <section class="flex flex-col gap-3">
+            <div>
+                <h2 class="text-[16px] font-bold text-on-light">@group.Title</h2>
+                <p class="mt-1 max-w-prose text-[13px] leading-[1.95] text-on-light-muted">@group.Note</p>
+            </div>
+
+            <ul class="grid gap-3 sm:grid-cols-2">
+                @foreach (var key in keys)
+                {
+                    var meta = AdminLabels.MetaFor(key);
+                    <li>
+                        <a href="/admin/@key" class="flex h-full flex-col rounded-2xl border border-hairline bg-card p-5 transition-colors hover:border-brand/35">
+                            <span class="flex flex-wrap items-center gap-2">
+                                <span class="text-[15px] font-bold text-on-light">@meta.Title</span>
+                                @if (Model.IsEdited(key))
+                                {
+                                    <span class="rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] text-brand-ink">ویرایش‌شده</span>
+                                }
+                            </span>
+                            <span class="mt-2 text-[13px] leading-[1.95] text-on-light-muted">@meta.Note</span>
+                            @if (meta.Where.Length > 0)
+                            {
+                                <span class="mt-2.5 border-t border-hairline pt-2.5 text-[12px] leading-[1.85] text-on-light-muted">
+                                    <span class="font-medium text-on-light">کجا:</span> @meta.Where
+                                </span>
+                            }
+                        </a>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
 </div>

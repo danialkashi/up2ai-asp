@@ -132,8 +132,15 @@ public class SectionModel : AdminPageModel
             {
                 case "add":
                     // الگوی آیتم تازه: اولین آیتم پیش‌فرض، وگرنه اولین آیتم فعلی.
-                    var template = (defArr is { Count: > 0 } ? defArr[0] : null) ?? (arr.Count > 0 ? arr[0] : null);
-                    if (template is not null) arr.Add(BlankLike(template));
+                    var template = (defArr is { Count: > 0 } ? defArr[0] : null)
+                        ?? (arr.Count > 0 ? arr[0] : null)
+                        ?? AdminLabels.TemplateFor(path[(path.LastIndexOf('.') + 1)..]);
+                    if (template is not null)
+                    {
+                        var fresh = BlankLike(template);
+                        EnsureUniqueId(fresh, arr);
+                        arr.Add(fresh);
+                    }
                     break;
 
                 case "remove":
@@ -187,7 +194,11 @@ public class SectionModel : AdminPageModel
             case JsonArray arr:
             {
                 var outArr = new JsonArray();
-                var template = arr.Count > 0 ? arr[0] : null;
+                // فهرستی که پیش‌فرضش خالی است هم باید بتواند آیتم بگیرد،
+                // وگرنه آیتمِ تازه سرِ ذخیره بی‌صدا حذف می‌شود.
+                var template = arr.Count > 0
+                    ? arr[0]
+                    : AdminLabels.TemplateFor(path[(path.LastIndexOf('.') + 1)..]);
                 var count = 0;
                 if (int.TryParse(Request.Form[$"n:{path}"].ToString(), out var n)) count = Math.Max(0, n);
 
@@ -204,9 +215,20 @@ public class SectionModel : AdminPageModel
             case JsonValue v:
             {
                 var key = path[(path.LastIndexOf('.') + 1)..];
-                // فیلدهای فقط‌خواندنی هرگز از فرم خوانده نمی‌شوند — حتی اگر
-                // کسی دستی در HTML بازشان کند، مقدار پیش‌فرض سر جایش می‌ماند.
-                if (AdminLabels.ReadOnlyKeys.Contains(key)) return v.DeepClone();
+
+                // فیلدهای قفل‌شده (شناسه، نوع پیش‌نمایش، آیکون، فرستنده) از پنل
+                // ویرایش نمی‌شوند ولی باید در رفت‌وبرگشتِ فرم *بمانند* — وگرنه
+                // موردی که تازه اضافه شده شناسه‌اش را سر ذخیره از دست می‌دهد و
+                // با آیتم اول یکی می‌شود. پس مقدارِ فرم فقط وقتی پذیرفته می‌شود
+                // که از فهرست مقدارهای شناخته‌شده باشد؛ هر چیز دیگری نادیده
+                // گرفته می‌شود و پیش‌فرض سر جایش می‌ماند.
+                if (AdminLabels.ReadOnlyKeys.Contains(key))
+                {
+                    var locked = Request.Form[$"f:{path}"].ToString();
+                    return locked.Length > 0 && IsAllowedLocked(key, locked)
+                        ? JsonValue.Create(locked)
+                        : v.DeepClone();
+                }
 
                 if (v.TryGetValue<string>(out _))
                 {
@@ -231,6 +253,76 @@ public class SectionModel : AdminPageModel
         }
     }
 
+    /* --------------------------- فیلدهای قفل‌شده --------------------------- */
+
+    /// <summary>
+    /// مقدارهای مجازِ هر فیلد قفل‌شده، از روی خودِ محتوای پیش‌فرض جمع می‌شود.
+    /// `preview` و `icon` فقط چند مقدار مشخص را می‌پذیرند و هر چیز دیگری آن
+    /// کارت را بی‌تصویر می‌کند، پس فهرست مجاز باید از داده بیاید نه از حدس.
+    /// </summary>
+    private Dictionary<string, HashSet<string>>? _lockedVocab;
+
+    private bool IsAllowedLocked(string key, string value)
+    {
+        // شناسه فقط باید یکتا و بی‌خطر باشد، نه از فهرستی از پیش تعیین‌شده —
+        // چون آیتم تازه ذاتاً شناسه‌ی تازه می‌خواهد.
+        if (key == "id")
+            return value.Length <= 48 && value.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_' or '.');
+
+        if (_lockedVocab is null)
+        {
+            _lockedVocab = new Dictionary<string, HashSet<string>>();
+            foreach (var k in AdminLabels.ReadOnlyKeys)
+                _lockedVocab[k] = new HashSet<string>(StringComparer.Ordinal);
+            CollectLocked(Store.Defaults, _lockedVocab);
+        }
+
+        return _lockedVocab.TryGetValue(key, out var set) && set.Contains(value);
+    }
+
+    private static void CollectLocked(JsonNode? node, Dictionary<string, HashSet<string>> into)
+    {
+        switch (node)
+        {
+            case JsonObject o:
+                foreach (var pair in o)
+                {
+                    if (into.TryGetValue(pair.Key, out var set)
+                        && pair.Value is JsonValue jv && jv.TryGetValue<string>(out var s))
+                        set.Add(s);
+                    CollectLocked(pair.Value, into);
+                }
+                break;
+            case JsonArray a:
+                foreach (var item in a) CollectLocked(item, into);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// به آیتم تازه یک شناسه‌ی یکتا می‌دهد. بدون این، آیتم تازه شناسه‌ی الگو را
+    /// می‌گرفت و در دموی ایجنت دو تب با یک شناسه ساخته می‌شد — که یعنی کلیک روی
+    /// تب دوم پنل اول را باز می‌کرد.
+    /// </summary>
+    private static void EnsureUniqueId(JsonNode? fresh, JsonArray siblings)
+    {
+        if (fresh is not JsonObject o
+            || !o.TryGetPropertyValue("id", out var idNode)
+            || idNode is not JsonValue idVal
+            || !idVal.TryGetValue<string>(out var stem)) return;
+
+        var taken = siblings.OfType<JsonObject>()
+            .Select(s => s.TryGetPropertyValue("id", out var n) && n is JsonValue v
+                         && v.TryGetValue<string>(out var sv) ? sv : "")
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (stem.Length == 0) stem = "item";
+        var candidate = stem;
+        var i = 2;
+        while (taken.Contains(candidate)) candidate = $"{stem}-{i++}";
+        o["id"] = JsonValue.Create(candidate);
+    }
+
     /// <summary>آیتم خالی هم‌شکلِ الگو.</summary>
     private static JsonNode? BlankLike(JsonNode template) => template switch
     {
@@ -248,7 +340,14 @@ public class SectionModel : AdminPageModel
     {
         var outObj = new JsonObject();
         foreach (var pair in o)
-            outObj[pair.Key] = pair.Value is null ? null : BlankLike(pair.Value);
+        {
+            // فیلدهای قفل‌شده خالی نمی‌شوند: خالی‌شان کردن یعنی کارتِ تازه
+            // بی‌تصویر و بی‌شناسه رندر شود. مقدار الگو را می‌گیرند و شناسه
+            // بعداً یکتا می‌شود.
+            outObj[pair.Key] = pair.Value is null ? null
+                : AdminLabels.ReadOnlyKeys.Contains(pair.Key) ? pair.Value.DeepClone()
+                : BlankLike(pair.Value);
+        }
         return outObj;
     }
 

@@ -5,7 +5,15 @@
 @{
     Layout = "_AdminLayout";
     var sec = Model.SectionKey;
-    ViewData["ActiveTab"] = sec;   // تا نوار تب‌ها بداند کدام تب فعال است
+    ViewData["ActiveTab"] = sec;   // تا ناوبری بداند کدام بخش باز است
+
+    var group = AdminLabels.Groups.FirstOrDefault(g => g.Key == Model.Meta.Group);
+
+    // بخش‌های بزرگ (مثل «متن‌های ثابت» با سیزده گروه) بسته باز می‌شوند تا
+    // کاربر اول *فهرست* گروه‌ها را ببیند، نه دیواری از جعبه‌ی متن.
+    var topGroups = Model.Working is JsonObject wo
+        ? wo.Count(p => p.Value is JsonObject) : 0;
+    var collapseTop = topGroups > 3;
 }
 
 @functions {
@@ -14,9 +22,9 @@
     //
     // چهار شکل پشتیبانی می‌شود، دقیقاً مثل نسخه‌ی ری‌اکت:
     //   • رشته            → input یا textarea (بلندها خودکار چندخطی می‌شوند)
-    //   • فهرست رشته      → ردیف‌های قابل افزودن/حذف/جابه‌جایی
-    //   • فهرست آیتم      → همان، ولی هر آیتم خودش چند فیلد دارد
-    //   • شیء تودرتو      → گروه، با قاب
+    //   • فهرست رشته      → ردیف‌های ساده‌ی قابل افزودن/حذف/جابه‌جایی
+    //   • فهرست آیتم      → کارت، چون هر آیتم خودش چند فیلد دارد
+    //   • شیء تودرتو      → گروهِ تاشو، با عنوان و توضیح
     // ─────────────────────────────────────────────────────────────────────
 
     string Summarize(JsonNode? v)
@@ -27,16 +35,43 @@
             foreach (var k in new[] { "title", "q", "label", "heading", "tab", "name", "text" })
                 if (o.TryGetPropertyValue(k, out var n) && n is JsonValue jv
                     && jv.TryGetValue<string>(out var sv) && sv.Length > 0) return sv;
+            // فیلدهای قفل‌شده (شناسه، نوع پیش‌نمایش، …) عنوانِ خوبی نیستند:
+            // موردِ تازه‌ای که هنوز پر نشده باید «خالی» به نظر برسد، نه این‌که
+            // شناسه‌ی فنی‌اش را به‌عنوان نام نشان بدهد.
             foreach (var pair in o)
-                if (pair.Value is JsonValue any && any.TryGetValue<string>(out var av) && av.Length > 0) return av;
+                if (!AdminLabels.ReadOnlyKeys.Contains(pair.Key)
+                    && pair.Value is JsonValue any && any.TryGetValue<string>(out var av) && av.Length > 0) return av;
         }
         return "";
     }
 
     static string LastKey(string path) => path[(path.LastIndexOf('.') + 1)..];
+
+    static string InputClass(bool changed, bool multiline) =>
+        "w-full rounded-xl border bg-surface px-3.5 py-2.5 text-[14px] leading-[1.9] text-on-light outline-none transition-colors focus:border-brand "
+        + (changed ? "border-brand/40" : "border-hairline");
 }
 
 @{
+    // دکمه‌های هر مورد از یک فهرست (بالا / پایین / حذف) — یک جا تعریف
+    // می‌شود چون هم ردیف‌های ساده و هم کارت‌ها از آن استفاده می‌کنند.
+    Func<string, int, int, Task> Controls = async (listPath, i, count) =>
+    {
+        var enc = Uri.EscapeDataString(listPath);
+        <span class="flex shrink-0 items-center gap-1">
+            <button type="submit" formnovalidate title="جابه‌جایی به بالا" aria-label="بالا" disabled="@(i == 0)"
+                    formaction="@($"/admin/{sec}?handler=List&op=up&path={enc}&index={i}")"
+                    class="grid h-11 w-11 place-items-center rounded-lg border border-hairline text-[15px] text-on-light-muted transition-colors hover:border-brand/35 hover:text-on-light disabled:opacity-30">↑</button>
+            <button type="submit" formnovalidate title="جابه‌جایی به پایین" aria-label="پایین" disabled="@(i == count - 1)"
+                    formaction="@($"/admin/{sec}?handler=List&op=down&path={enc}&index={i}")"
+                    class="grid h-11 w-11 place-items-center rounded-lg border border-hairline text-[15px] text-on-light-muted transition-colors hover:border-brand/35 hover:text-on-light disabled:opacity-30">↓</button>
+            <button type="submit" formnovalidate title="حذف این مورد" aria-label="حذف"
+                    formaction="@($"/admin/{sec}?handler=List&op=remove&path={enc}&index={i}")"
+                    class="grid h-11 w-11 place-items-center rounded-lg border border-hairline text-[15px] text-red-700 transition-colors hover:border-red-300 hover:bg-red-50">×</button>
+        </span>
+        await Task.CompletedTask;
+    };
+
     // helper محلی برای رندر یک گره
     Func<JsonNode?, JsonNode?, string, int, bool, Task> Node = null!;
 
@@ -44,54 +79,85 @@
     {
         var key = LastKey(path);
 
+        /* ------------------------------ رشته ------------------------------ */
         if (value is JsonValue jv && jv.TryGetValue<string>(out var sval))
         {
             var dval = def is JsonValue dv && dv.TryGetValue<string>(out var ds) ? ds : "";
             var id = "f-" + path.Replace('.', '-');
             var changed = sval != dval;
-            var readOnly = AdminLabels.ReadOnlyKeys.Contains(key);
+            var hint = AdminLabels.HintFor(key);
+
+            // فیلدهای گره‌خورده به کد اصلاً جعبه‌ی ورودی نمی‌گیرند: جعبه‌ی
+            // خاکستریِ غیرقابل‌تایپ فقط کاربر را سرگردان می‌کرد.
+            if (AdminLabels.ReadOnlyKeys.Contains(key))
+            {
+                @* مقدار در فرم می‌ماند تا مرتب‌سازی و افزودن، شناسه‌ها را جابه‌جا
+                   نکند؛ سرور فقط مقدارهای شناخته‌شده را می‌پذیرد. *@
+                <input type="hidden" name="@("f:" + path)" value="@sval" />
+                <p class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-surface-2 px-3 py-2 text-[12.5px] text-on-light-muted">
+                    <span class="font-medium text-on-light">@AdminLabels.LabelFor(key):</span>
+                    <code dir="ltr" class="rounded bg-card px-1.5 py-0.5">@(sval.Length > 0 ? sval : "—")</code>
+                    <span>ثابت است — این مقدار به کد گره خورده و از پنل عوض نمی‌شود.</span>
+                </p>
+                return;
+            }
+
             var multiline = AdminLabels.IsMultiline(key, dval.Length > 0 ? dval : sval);
-            var cls = "w-full rounded-xl border bg-surface px-3.5 py-2.5 text-[14px] leading-[1.9] text-on-light outline-none transition-colors focus:border-brand "
-                + (changed ? "border-brand/40" : "border-hairline") + (readOnly ? " opacity-60" : "");
             <div class="flex flex-col gap-1.5">
-                <label for="@id" class="flex items-center gap-2 text-[13px] font-medium text-on-light">
+                <label for="@id" class="flex flex-wrap items-center gap-2 text-[13px] font-medium text-on-light">
                     @AdminLabels.LabelFor(key)
-                    @if (changed && !readOnly)
+                    @if (changed)
                     {
                         <span class="rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-normal text-brand-ink">تغییر کرده</span>
                     }
                 </label>
+
+                @if (hint.Length > 0)
+                {
+                    <p id="@(id)-hint" class="text-[12px] leading-[1.85] text-on-light-muted">@hint</p>
+                }
+
                 @if (multiline)
                 {
                     var rows = Math.Min(8, Math.Max(3, (int)Math.Ceiling((sval.Length == 0 ? 1 : sval.Length) / 70.0)));
-                    <textarea id="@id" name="@("f:" + path)" rows="@rows" readonly="@(readOnly ? "readonly" : null)" class="@cls">@sval</textarea>
+                    <textarea id="@id" name="@("f:" + path)" rows="@rows" dir="auto"
+                              aria-describedby="@(hint.Length > 0 ? id + "-hint" : null)"
+                              class="@InputClass(changed, true)">@sval</textarea>
                 }
                 else
                 {
-                    <input id="@id" name="@("f:" + path)" type="text" value="@sval" readonly="@(readOnly ? "readonly" : null)" class="@cls" dir="auto" />
+                    <input id="@id" name="@("f:" + path)" type="text" value="@sval" dir="auto"
+                           aria-describedby="@(hint.Length > 0 ? id + "-hint" : null)"
+                           class="@InputClass(changed, false)" />
                 }
-                @if (readOnly)
+
+                @if (changed)
                 {
-                    <p class="text-[12px] text-on-light-muted">این فیلد به کد گره خورده و از پنل عوض نمی‌شود.</p>
-                }
-                else if (changed)
-                {
-                    <p class="flex flex-wrap items-center gap-2 text-[12px] text-on-light-muted">
-                        <span>پیش‌فرض: @(dval.Length > 0 ? dval : "«خالی»")</span>
-                    </p>
+                    <p class="text-[12px] text-on-light-muted">پیش‌فرض: @(dval.Length > 0 ? dval : "«خالی»")</p>
                 }
             </div>
         }
+
+        /* ------------------------------ فهرست ------------------------------ */
         else if (value is JsonArray arr)
         {
             var defArr = def as JsonArray ?? new JsonArray();
-            var hasTemplate = defArr.Count > 0 || arr.Count > 0;
+            var hasTemplate = defArr.Count > 0 || arr.Count > 0 || AdminLabels.TemplateFor(key) is not null;
+            var hint = AdminLabels.HintFor(key);
+            // فهرست رشته‌ها (مثل «نکته‌ها») ردیف ساده می‌گیرد، نه کارت —
+            // کارتِ کامل برای یک تک‌خط، بیشتر قاب است تا محتوا.
+            var simple = arr.Count > 0
+                ? arr.All(x => x is JsonValue v2 && v2.TryGetValue<string>(out _))
+                : defArr.Count > 0 && defArr[0] is JsonValue dv2 && dv2.TryGetValue<string>(out _);
+
             <div class="flex flex-col gap-2.5">
                 @* طول فهرست: سرور در POST بعدی از همین می‌فهمد چند آیتم بخواند *@
                 <input type="hidden" name="@("n:" + path)" value="@arr.Count" />
-                <div class="flex items-center justify-between gap-3">
+
+                <div class="flex flex-wrap items-center justify-between gap-3">
                     <span class="text-[13px] font-medium text-on-light">
-                        @AdminLabels.LabelFor(key) <span class="font-normal text-on-light-muted">(@arr.Count)</span>
+                        @AdminLabels.LabelFor(key)
+                        <span class="font-normal text-on-light-muted">— @arr.Count مورد</span>
                     </span>
                     @* توجه: این دکمه عمداً `asp-page-handler` ندارد — ASP.NET اجازه
                        نمی‌دهد یک <button> هم‌زمان formaction دستی و تگ‌هلپر مسیر
@@ -99,13 +165,22 @@
                     <button type="submit" formnovalidate
                             formaction="@($"/admin/{sec}?handler=List&op=add&path={Uri.EscapeDataString(path)}&index=0")"
                             disabled="@(!hasTemplate)"
-                            title="@(!hasTemplate ? "الگویی برای آیتم تازه وجود ندارد" : null)"
-                            class="min-h-11 rounded-lg border border-hairline px-3.5 py-1.5 text-[13px] text-on-light transition-colors hover:border-brand/35 disabled:opacity-40">افزودن</button>
+                            title="@(!hasTemplate ? "الگویی برای آیتم تازه وجود ندارد" : "یک مورد خالی به انتهای فهرست اضافه می‌کند")"
+                            class="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-hairline px-3.5 py-1.5 text-[13px] text-on-light transition-colors hover:border-brand/35 disabled:opacity-40">
+                        <span aria-hidden="true">＋</span> افزودن مورد
+                    </button>
                 </div>
+
+                @if (hint.Length > 0)
+                {
+                    <p class="text-[12px] leading-[1.85] text-on-light-muted">@hint</p>
+                }
 
                 @if (arr.Count == 0)
                 {
-                    <p class="rounded-xl border border-dashed border-hairline px-4 py-3 text-[13px] text-on-light-muted">خالی است — روی سایت اصلاً رندر نمی‌شود.</p>
+                    <p class="rounded-xl border border-dashed border-hairline px-4 py-3 text-[13px] text-on-light-muted">
+                        خالی است — تا موردی اضافه نکنی، این قسمت روی سایت اصلاً نشان داده نمی‌شود.
+                    </p>
                 }
 
                 <ul class="flex flex-col gap-2.5">
@@ -115,30 +190,47 @@
                         var itemDef = i < defArr.Count ? defArr[i] : (defArr.Count > 0 ? defArr[0] : null);
                         var itemPath = $"{path}.{i}";
                         var label = Summarize(item);
-                        <li class="rounded-xl border border-hairline bg-card p-3.5">
-                            <div class="mb-2.5 flex items-center justify-between gap-3">
-                                <span class="truncate text-[12px] text-on-light-muted">@(i + 1). @(label.Length > 0 ? label : "بدون عنوان")</span>
-                                <span class="flex shrink-0 items-center gap-1">
-                                    <button type="submit" formnovalidate aria-label="بالا" title="بالا" disabled="@(i == 0)"
-                                            formaction="@($"/admin/{sec}?handler=List&op=up&path={Uri.EscapeDataString(path)}&index={i}")"
-                                            class="grid h-11 w-11 place-items-center rounded-lg border text-[15px] transition-colors disabled:opacity-30 border-hairline text-on-light-muted hover:border-brand/35 hover:text-on-light">↑</button>
-                                    <button type="submit" formnovalidate aria-label="پایین" title="پایین" disabled="@(i == arr.Count - 1)"
-                                            formaction="@($"/admin/{sec}?handler=List&op=down&path={Uri.EscapeDataString(path)}&index={i}")"
-                                            class="grid h-11 w-11 place-items-center rounded-lg border text-[15px] transition-colors disabled:opacity-30 border-hairline text-on-light-muted hover:border-brand/35 hover:text-on-light">↓</button>
-                                    <button type="submit" formnovalidate aria-label="حذف" title="حذف"
-                                            formaction="@($"/admin/{sec}?handler=List&op=remove&path={Uri.EscapeDataString(path)}&index={i}")"
-                                            class="grid h-11 w-11 place-items-center rounded-lg border text-[15px] transition-colors disabled:opacity-30 border-hairline text-red-700 hover:border-red-300 hover:bg-red-50">×</button>
+                        var isBlank = label.Length == 0;
+
+                        if (simple)
+                        {
+                            <li class="flex items-start gap-2">
+                                <span class="mt-3 w-5 shrink-0 text-[12px] text-on-light-muted">@(i + 1).</span>
+                                <span class="min-w-0 flex-1">
+                                    <input name="@("f:" + itemPath)" type="text" dir="auto"
+                                           value="@((item as JsonValue)?.GetValue<string>() ?? "")"
+                                           aria-label="@(AdminLabels.LabelFor(key)) — مورد @(i + 1)"
+                                           class="w-full rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-[14px] leading-[1.9] text-on-light outline-none transition-colors focus:border-brand" />
                                 </span>
-                            </div>
-                            @{ await Node(item, itemDef, itemPath, depth + 1, true); }
-                        </li>
+                                @{ await Controls(path, i, arr.Count); }
+                            </li>
+                        }
+                        else
+                        {
+                            <li class="rounded-xl border border-hairline bg-card p-3.5">
+                                <div class="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-hairline pb-2.5">
+                                    <span class="flex min-w-0 items-center gap-2">
+                                        <span class="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-surface-2 text-[12px] font-bold text-on-light-muted">@(i + 1)</span>
+                                        <span class="truncate text-[13px] font-medium @(isBlank ? "text-on-light-muted" : "text-on-light")">
+                                            @(isBlank ? "مورد تازه — هنوز پر نشده" : label)
+                                        </span>
+                                    </span>
+                                    @{ await Controls(path, i, arr.Count); }
+                                </div>
+                                @{ await Node(item, itemDef, itemPath, depth + 1, true); }
+                            </li>
+                        }
                     }
                 </ul>
             </div>
         }
+
+        /* ------------------------------- شیء ------------------------------- */
         else if (value is JsonObject obj)
         {
             var defObj = def as JsonObject ?? new JsonObject();
+
+            // ریشه‌ی بخش، یا فیلدهای داخل یک کارتِ فهرست: بدون قاب اضافه.
             if (depth == 0 || bare)
             {
                 <div class="flex flex-col gap-4">
@@ -150,15 +242,37 @@
             }
             else
             {
-                <fieldset class="rounded-xl border border-hairline bg-card p-4">
-                    <legend class="px-1.5 text-[13px] font-bold text-on-light">@AdminLabels.LabelFor(key)</legend>
-                    <div class="mt-2 flex flex-col gap-4">
-                        @foreach (var pair in obj)
+                var area = AdminLabels.Areas.TryGetValue(key, out var a) ? a : null;
+                var title = area?.Title ?? AdminLabels.LabelFor(key);
+                var note = area?.Note ?? AdminLabels.HintFor(key);
+                var fieldCount = obj.Count;
+                // فقط گروه‌های سطح اولِ بخش‌های بزرگ بسته باز می‌شوند
+                var isOpen = !(depth == 1 && collapseTop);
+
+                <details class="group rounded-xl border border-hairline bg-card" open="@(isOpen ? "open" : null)">
+                    <summary class="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-4 py-3">
+                        <span class="flex items-center gap-2">
+                            <span class="text-[13.5px] font-bold text-on-light">@title</span>
+                            <span class="text-[12px] text-on-light-muted">@fieldCount فیلد</span>
+                        </span>
+                        <span aria-hidden="true" class="text-[12px] text-on-light-muted">
+                            <span class="group-open:hidden">باز کردن ▾</span>
+                            <span class="hidden group-open:inline">بستن ▴</span>
+                        </span>
+                    </summary>
+                    <div class="border-t border-hairline px-4 py-4">
+                        @if (note.Length > 0)
                         {
-                            await Node(pair.Value, defObj.TryGetPropertyValue(pair.Key, out var d2) ? d2 : null, $"{path}.{pair.Key}", depth + 1, false);
+                            <p class="mb-4 text-[12.5px] leading-[1.9] text-on-light-muted">@note</p>
                         }
+                        <div class="flex flex-col gap-4">
+                            @foreach (var pair in obj)
+                            {
+                                await Node(pair.Value, defObj.TryGetPropertyValue(pair.Key, out var d2) ? d2 : null, $"{path}.{pair.Key}", depth + 1, false);
+                            }
+                        </div>
                     </div>
-                </fieldset>
+                </details>
             }
         }
         else
@@ -169,46 +283,83 @@
 }
 
 <div class="flex flex-col gap-6">
-    <div>
+
+    @* ---------------------------- سربرگ بخش ---------------------------- *@
+    <div class="flex flex-col gap-3">
+        @if (group is not null)
+        {
+            <p class="text-[12px] text-on-light-muted">@group.Title</p>
+        }
         <h1 class="text-[24px] font-bold text-on-light">@Model.Meta.Title</h1>
         @if (Model.Meta.Note.Length > 0)
         {
-            <p class="mt-2 text-[14px] leading-[2] text-on-light-muted">@Model.Meta.Note</p>
+            <p class="max-w-prose text-[14px] leading-[2] text-on-light-muted">@Model.Meta.Note</p>
+        }
+
+        @if (Model.Meta.Where.Length > 0)
+        {
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/20 bg-brand/[0.04] px-4 py-3">
+                <p class="max-w-prose text-[13px] leading-[1.95] text-on-light">
+                    <span class="font-bold">کجای سایت دیده می‌شود:</span>
+                    <span class="text-on-light-muted">@Model.Meta.Where</span>
+                </p>
+                @if (Model.Meta.Anchor.Length > 0)
+                {
+                    <a href="/@Model.Meta.Anchor" target="_blank" rel="noopener"
+                       class="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-hairline bg-card px-3.5 text-[13px] font-medium text-on-light transition-colors hover:border-brand/35">
+                        دیدن روی سایت <span aria-hidden="true" class="text-[11px]">↗</span>
+                    </a>
+                }
+            </div>
         }
     </div>
 
-    <form method="post" class="flex flex-col gap-6">
+    @* ------------------------- پیام‌های وضعیت ------------------------- *@
+    @if (Model.Saved is not null)
+    {
+        <p class="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-[13.5px] leading-[1.9] text-emerald-900">
+            ذخیره شد — «@Model.Saved» همین حالا روی سایت به‌روز است.
+        </p>
+    }
+    @if (Model.Error is not null)
+    {
+        <p class="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-[13.5px] leading-[1.9] text-red-800">@Model.Error</p>
+    }
+    @if (Model.Rejected.Count > 0)
+    {
+        <p class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] leading-[1.9] text-amber-900">
+            این فیلدها ذخیره نشدند چون شکلشان با ساختار محتوا نمی‌خواند و به
+            پیش‌فرض برگشتند: <code>@string.Join("، ", Model.Rejected)</code>
+        </p>
+    }
+
+    @if (collapseTop)
+    {
+        <p class="rounded-xl border border-hairline bg-card px-4 py-3 text-[13px] leading-[1.9] text-on-light-muted">
+            این بخش گروه‌های زیادی دارد، پس همه بسته‌اند. روی نام هر گروه بزن تا باز شود.
+        </p>
+    }
+
+    @* مسیر فرم عمداً صریح نوشته شده: بعد از «افزودن» یا «جابه‌جایی»، آدرس
+       صفحه شامل ?handler=List است و فرمِ بدون action دوباره همان دستور را
+       اجرا می‌کرد — یعنی دکمه‌ی ذخیره به‌جای ذخیره، یک مورد دیگر اضافه می‌کرد. *@
+    <form method="post" asp-page="/Admin/Section" asp-route-section="@sec" class="flex flex-col gap-6">
         @{ await Node(Model.Working, Model.Defaults, sec, 0, false); }
 
         @* نوار چسبان پایین — تا در فرم‌های بلند دکمه‌ی ذخیره گم نشود *@
         <div class="sticky bottom-0 -mx-4 mt-2 flex flex-wrap items-center gap-3 border-t border-hairline bg-surface/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
             <button type="submit"
-                    class="inline-flex min-h-11 items-center rounded-xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-5 py-2.5 text-[14px] font-medium text-white transition-opacity disabled:opacity-40">ذخیره</button>
+                    class="inline-flex min-h-11 items-center rounded-xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-5 py-2.5 text-[14px] font-medium text-white transition-opacity">ذخیره‌ی تغییرات</button>
 
-            <a href="/admin/@sec" class="inline-flex min-h-11 items-center rounded-xl border border-hairline px-4 py-2.5 text-[14px] text-on-light transition-colors hover:border-brand/35">برگرداندن تغییرهای ذخیره‌نشده</a>
+            <a href="/admin/@sec" title="فرم را به آخرین حالتِ ذخیره‌شده برمی‌گرداند"
+               class="inline-flex min-h-11 items-center rounded-xl border border-hairline px-4 py-2.5 text-[14px] text-on-light transition-colors hover:border-brand/35">لغو تغییرهای ذخیره‌نشده</a>
 
             <button type="submit" formnovalidate asp-page-handler="Reset"
                     disabled="@(!Model.ChangedFromDefault)"
-                    class="inline-flex min-h-11 items-center rounded-xl border border-dashed border-hairline px-4 py-2.5 text-[14px] text-on-light-muted transition-colors hover:border-on-light-muted disabled:opacity-40">بازگشت این بخش به پیش‌فرض</button>
+                    title="همه‌ی متن‌های این بخش را به حالت اولیه برمی‌گرداند"
+                    class="inline-flex min-h-11 items-center rounded-xl border border-dashed border-hairline px-4 py-2.5 text-[14px] text-on-light-muted transition-colors hover:border-on-light-muted disabled:opacity-40">بازگشت به متن پیش‌فرض</button>
 
-            <span aria-live="polite" class="text-[13px]">
-                @if (Model.Error is not null)
-                {
-                    <b class="text-red-700">@Model.Error</b>
-                }
-                else if (Model.Saved is not null)
-                {
-                    <span class="text-emerald-700">ذخیره شد — «@Model.Saved» روی سایت به‌روز است.</span>
-                }
-            </span>
+            <span class="text-[12.5px] text-on-light-muted">تا «ذخیره» نزنی هیچ تغییری روی سایت نمی‌رود.</span>
         </div>
-
-        @if (Model.Rejected.Count > 0)
-        {
-            <p class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] leading-[1.9] text-amber-900">
-                این فیلدها ذخیره نشدند چون شکلشان با ساختار محتوا نمی‌خواند و به
-                پیش‌فرض برگشتند: <code>@string.Join("، ", Model.Rejected)</code>
-            </p>
-        }
     </form>
 </div>
