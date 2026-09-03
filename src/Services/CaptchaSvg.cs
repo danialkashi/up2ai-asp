@@ -24,6 +24,11 @@ public static class CaptchaSvg
         var sb = new StringBuilder();
         sb.Append(CultureInfo.InvariantCulture,
             $"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {w} {h}\" width=\"{w}\" height=\"{h}\" role=\"img\">");
+
+        // نامِ دسترس‌پذیر تصویر. عمداً *خودِ عبارت* را نمی‌گوید — وگرنه کپچا
+        // بی‌معنا می‌شد — فقط توضیح می‌دهد این تصویر چیست. بدون این، ابزارهای
+        // بررسی دسترس‌پذیری (و صفحه‌خوان‌ها) یک تصویرِ بی‌نام می‌دیدند.
+        sb.Append("<title>تصویر پرسش امنیتی</title>");
         sb.Append("<rect width=\"100%\" height=\"100%\" rx=\"10\" fill=\"#f1f1f8\"/>");
 
         // کاراکترها از راست به چپ چیده نمی‌شوند: خودِ عبارت «۳ + ۵» یک عبارت
