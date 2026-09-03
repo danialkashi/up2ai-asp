@@ -116,6 +116,10 @@ views.update({
     "admin-login": ("پنل — صفحه‌ی ورود", login_page),
     "admin-home": ("پنل — خانه (فهرست بخش‌ها)", body_of(get("/admin"))),
     "admin-editor": ("پنل — ویرایشگر یک بخش", body_of(get("/admin/faq"))),
+    # این دو تب عمداً جدا آمده‌اند: پرسش‌های همیشگی «تب‌های هدر را از کجا
+    # کم و زیاد کنم» و «تنظیمات صفحه‌ی وبلاگ کجاست» دقیقاً همین دو صفحه‌اند.
+    "admin-nav": ("پنل — منوی هدر", body_of(get("/admin/navItems"))),
+    "admin-texts": ("پنل — متن‌ها (و تنظیمات وبلاگ)", body_of(get("/admin/copy"))),
     "admin-posts": ("پنل — وبلاگ (فهرست نوشته‌ها)", body_of(admin_posts)),
     "admin-post-edit": ("پنل — ویرایش نوشته", body_of(post_editor)),
     "admin-comments": ("پنل — نظرها", body_of(get("/admin/comments"))),

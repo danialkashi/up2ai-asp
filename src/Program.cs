@@ -37,6 +37,33 @@ builder.Services.AddSingleton<AdminUserStore>();
 builder.Services.AddSingleton<FormGuard>();
 builder.Services.AddAntiforgery();
 
+// فشرده‌سازی پاسخ‌ها.
+//
+// صفحه‌ی اصلی و CSS با هم چند ده کیلوبایت متن‌اند و متن با Brotli تا حدود
+// یک‌ششم جمع می‌شود. روی سرور واقعی (که برخلاف اینجا پهنای باند و تأخیر
+// دارد) این بزرگ‌ترین برد سرعت است، نه یک بهینه‌سازی تزئینی.
+//
+// EnableForHttps عمداً روشن است: کل سایت روی HTTPS است، و حمله‌ی BREACH
+// وقتی معنا دارد که پاسخِ فشرده هم‌زمان «راز» و «ورودیِ مهاجم» را داشته
+// باشد. تنها رازِ ما توکن ضدجعل است که در هر پاسخ تازه ساخته می‌شود.
+builder.Services.AddResponseCompression(o =>
+{
+    o.EnableForHttps = true;
+    o.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    o.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+    // پیش‌فرضِ ASP.NET چند نوعِ محدود را می‌گیرد؛ این‌ها را خودمان اضافه می‌کنیم.
+    o.MimeTypes = Microsoft.AspNetCore.ResponseCompression.ResponseCompressionDefaults
+        .MimeTypes.Concat(new[]
+        {
+            "image/svg+xml", "application/rss+xml", "application/xml", "text/xml",
+            "application/json", "application/ld+json", "application/manifest+json",
+        });
+});
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions>(
+    o => o.Level = System.IO.Compression.CompressionLevel.Optimal);
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(
+    o => o.Level = System.IO.Compression.CompressionLevel.Optimal);
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -51,7 +78,35 @@ if (!app.Environment.IsDevelopment())
 // برای موتورهای جست‌وجو مهم است که ۲۰۰ برنگردد.
 app.UseStatusCodePagesWithReExecute("/Error");
 
-app.UseStaticFiles();
+// ترتیب مهم است: فشرده‌سازی باید *قبل* از هر چیزی باشد که بدنه می‌نویسد.
+app.UseResponseCompression();
+
+// کشِ فایل‌های ثابت.
+//
+// بدون این، مرورگر هر بار فونت ۵۷ کیلوبایتی و CSS را دوباره می‌گیرد —
+// Lighthouse هم دقیقاً همین را به‌عنوان بزرگ‌ترین ایراد نشان می‌داد.
+//
+// یک سال + immutable فقط برای فایل‌هایی امن است که آدرسشان با تغییر محتوا
+// عوض می‌شود. CSS و JS را با `asp-append-version` می‌فرستیم، پس هش در
+// کوئری می‌آید و نسخه‌ی تازه بلافاصله دیده می‌شود. فونت هم فایلی است که
+// اگر روزی عوض شود، اسمش عوض می‌شود. بقیه (مثل تصویر og) یک روز کش
+// می‌گیرند تا در بدترین حالت خیلی زود تازه شوند.
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        var path = ctx.Context.Request.Path.Value ?? "";
+        var longLived =
+            path.StartsWith("/css/", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/js/", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/fonts/", StringComparison.OrdinalIgnoreCase);
+
+        ctx.Context.Response.Headers.CacheControl = longLived
+            ? "public, max-age=31536000, immutable"
+            : "public, max-age=86400";
+    },
+});
+
 app.UseRouting();
 app.UseAntiforgery();
 app.MapRazorPages();
