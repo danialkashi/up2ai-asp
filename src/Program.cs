@@ -31,6 +31,10 @@ builder.Services.AddRazorPages();
 builder.Services.AddSingleton<ContentStore>();
 builder.Services.AddSingleton<LeadStore>();
 builder.Services.AddSingleton<AdminAuth>();
+builder.Services.AddSingleton<BlogStore>();
+builder.Services.AddSingleton<AdminUserStore>();
+// singleton چون شمارشِ IPها و توکن‌های مصرف‌شده باید بین درخواست‌ها بماند.
+builder.Services.AddSingleton<FormGuard>();
 builder.Services.AddAntiforgery();
 
 var app = builder.Build();
@@ -39,6 +43,13 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
 }
+
+// آدرسِ اشتباه باید صفحه‌ی ۴۰۴ی فارسیِ خودمان را بگیرد، نه یک پاسخِ خالی.
+// (قبل از این، /هرچیز-اشتباه یک بدنه‌ی صفربایتی برمی‌گرداند و متنِ «صفحه‌ی
+// ۴۰۴» که در پنل مدیریت قابل ویرایش بود هیچ‌وقت جایی دیده نمی‌شد.)
+// ReExecute یعنی کد وضعیت ۴۰۴ حفظ می‌شود و فقط بدنه از /Error رندر می‌شود —
+// برای موتورهای جست‌وجو مهم است که ۲۰۰ برنگردد.
+app.UseStatusCodePagesWithReExecute("/Error");
 
 app.UseStaticFiles();
 app.UseRouting();
@@ -122,7 +133,20 @@ internal static class HashPasswordCommand
 /// </summary>
 internal static class DotEnv
 {
-    public static void LoadInto(IConfigurationBuilder config, string path)
+    /// <summary>
+    /// مقدارهای `.env` را *فقط برای کلیدهایی که هنوز مقدار ندارند* می‌گذارد.
+    ///
+    /// قبلاً این متد منبعِ خودش را به انتهای زنجیره اضافه می‌کرد و در
+    /// <c>IConfiguration</c> آخرین منبع برنده است — یعنی یک فایل `.env`
+    /// جامانده روی سرور، بی‌صدا متغیرهای محیطیِ خودِ هاست را هم بی‌اثر
+    /// می‌کرد. سناریوی واقعی‌اش این است: رمز پنل را از پنلِ هاست عوض می‌کنی،
+    /// کار نمی‌کند، و هیچ سرنخی هم نیست که چرا.
+    ///
+    /// حالا ترتیب درست است: متغیر محیطی و آرگومان خط فرمان بر `.env` مقدم‌اند
+    /// و `.env` فقط جای خالی‌ها را پر می‌کند — که همان کاری است که همه از یک
+    /// فایل `.env` انتظار دارند.
+    /// </summary>
+    public static void LoadInto(ConfigurationManager config, string path)
     {
         if (!File.Exists(path)) return;
         var values = new Dictionary<string, string?>();
@@ -135,8 +159,10 @@ internal static class DotEnv
             var key = line[..eq].Trim();
             var value = line[(eq + 1)..].Trim();
             if (value.Length >= 2 && value[0] == '"' && value[^1] == '"') value = value[1..^1];
-            values[key] = value;
+            // کلیدی که از قبل مقدار دارد (متغیر محیطی، خط فرمان، appsettings)
+            // دست‌نخورده می‌ماند.
+            if (string.IsNullOrEmpty(config[key])) values[key] = value;
         }
-        config.AddInMemoryCollection(values);
+        if (values.Count > 0) config.AddInMemoryCollection(values);
     }
 }
