@@ -63,10 +63,14 @@
                آیتم ششم و هفتم به منو اضافه شود، آیتم‌ها جمع می‌شوند و متنشان
                وسط کلمه می‌شکند. با این‌ها منو در بدترین حالت افقی اسکرول
                می‌شود و چیدمان هدر سالم می‌ماند. *@
-            <ul class="no-scrollbar hidden min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto md:flex">
+            @* فاصله و اندازه تا `lg` فشرده‌تر است: با شش آیتم در ۱۰۲۴ پیکسل
+               منو دقیقاً لب‌به‌لب می‌شد و آیتم هفتم اسکرول می‌خواست. حالا تا
+               هشت آیتم بدون اسکرول جا می‌شود و از آن به بعد نوار محوِ لبه
+               (data-nav-scroll) نشان می‌دهد که ادامه دارد. *@
+            <ul data-nav-scroll class="no-scrollbar hidden min-w-0 flex-1 items-center justify-center gap-0.5 overflow-x-auto md:flex lg:gap-1">
                 @foreach (var item in nav)
                 {
-                    <li class="shrink-0"><a href="@SiteLinks.Resolve(item["href"].S, here)" class="relative rounded-lg px-3.5 py-[11px] text-[15px] font-medium whitespace-nowrap text-on-dark/80 transition-colors hover:text-white">@item["label"]</a></li>
+                    <li class="shrink-0"><a href="@SiteLinks.Resolve(item["href"].S, here)" class="relative rounded-lg px-2.5 py-[11px] text-[14.5px] font-medium whitespace-nowrap text-on-dark/80 transition-colors hover:text-white lg:px-3.5 lg:text-[15px]">@item["label"]</a></li>
                 }
             </ul>
 
