@@ -100,6 +100,15 @@ body {
   display: none;
 }
 
+/* منوی هدر وقتی آیتم‌هایش از عرض بیشتر می‌شود افقی اسکرول می‌شود. این ماسک
+   لبه‌ها را محو می‌کند تا کاربر بفهمد ادامه دارد — و فقط وقتی روشن می‌شود که
+   واقعاً سرریز باشد (اسکریپت این ویژگی را می‌گذارد)، وگرنه لبه‌ی اولین و
+   آخرین آیتمِ یک منوی جاشده هم بی‌دلیل کم‌رنگ می‌شد. */
+[data-nav-scroll="overflow"] {
+  -webkit-mask-image: linear-gradient(to left, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(to left, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+}
+
 /* Persian digits & proper number rendering inside RTL text */
 .num {
   font-feature-settings: "ss01";
