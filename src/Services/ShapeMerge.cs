@@ -83,7 +83,11 @@ public static class ShapeMerge
                     // کلیدی که در پیش‌فرض نیست یعنی یا اشتباه تایپی است یا از
                     // نسخه‌ی قدیمی مانده. نگهش نمی‌داریم تا شکل داده هرگز از
                     // مدل جدا نیفتد.
-                    report.Rejected.Add($"{path}.{pair.Key}");
+                    //
+                    // در ریشه، path خالی است؛ بدون این شرط نامِ کلید با یک
+                    // نقطه‌ی اضافه شروع می‌شد («‎.thisKey») و در هشدارِ پنل
+                    // همان شکلِ عجیب به کاربر نشان داده می‌شد.
+                    report.Rejected.Add(string.IsNullOrEmpty(path) ? pair.Key : $"{path}.{pair.Key}");
                     continue;
                 }
 
