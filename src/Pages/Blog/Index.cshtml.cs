@@ -13,10 +13,14 @@ namespace Up2Ai.Pages.Blog;
 public class BlogIndexModel : ContentPageModel
 {
     /// <summary>
-    /// ده نوشته در هر صفحه. کم‌تر یعنی صفحه‌بندیِ زودهنگام برای وبلاگی که
-    /// تازه شروع شده؛ بیشتر یعنی صفحه‌ی سنگین روی اینترنتِ موبایل.
+    /// ده نوشته در هر صفحه، مگر آن‌که از پنل عدد دیگری انتخاب شده باشد.
+    /// کم‌تر یعنی صفحه‌بندیِ زودهنگام برای وبلاگی که تازه شروع شده؛ بیشتر
+    /// یعنی صفحه‌ی سنگین روی اینترنتِ موبایل.
     /// </summary>
-    public const int PageSize = 10;
+    public const int DefaultPageSize = 10;
+
+    /// <summary>عددِ همین درخواست — از محتوا خوانده می‌شود.</summary>
+    public int PageSize { get; private set; } = DefaultPageSize;
 
     private readonly BlogStore _blog;
 
@@ -38,6 +42,13 @@ public class BlogIndexModel : ContentPageModel
     /// </summary>
     public void OnGet([FromQuery] int? page)
     {
+        // عددِ پنل. اگر کسی دستی فایل محتوا را دست‌کاری کند و چیز بی‌ربطی
+        // بگذارد، به‌جای خطا به پیش‌فرض برمی‌گردیم و در بازه‌ی معقول می‌مانیم —
+        // یک «0» می‌توانست تقسیم‌بر‌صفر بدهد و کل صفحه را بخواباند.
+        PageSize = int.TryParse(C["copy"]["blog"]["pageSize"].S, out var n)
+            ? Math.Clamp(n, 3, 50)
+            : DefaultPageSize;
+
         var all = _blog.Published();
         TotalPages = Math.Max(1, (int)Math.Ceiling(all.Count / (double)PageSize));
         // شماره‌ی صفحه از آدرس می‌آید، پس هر عددی ممکن است بیاید — داخل بازه
