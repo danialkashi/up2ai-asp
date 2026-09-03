@@ -12,6 +12,19 @@
 (function () {
   "use strict";
 
+  /* ---- کمکی: اسکیپ کردن متنی که از محتوا می‌آید ----
+     هر جای این فایل که رشته‌ای وارد innerHTML می‌شود باید از این‌ها رد شود.
+     متن‌ها از پنل مدیریت می‌آیند و ممکن است & یا < داشته باشند. */
+  function escHtml(t) {
+    var d = document.createElement("div");
+    d.textContent = t == null ? "" : t;
+    return d.innerHTML;
+  }
+
+  function escAttr(t) {
+    return escHtml(t).replace(/"/g, "&quot;");
+  }
+
   /* ---- پس‌زمینه‌ی هدر بعد از شروع اسکرول ---- */
   var bar = document.querySelector("header > div");
   if (bar) {
@@ -33,21 +46,31 @@
   var btn = document.querySelector('button[aria-controls="mobile-menu"]');
   var header = document.querySelector("header");
   if (btn && header) {
-    var navLinks = header.querySelectorAll('nav a[href^="#"]');
-    var ctaLink = header.querySelector('a[href="#contact"]:not(nav a)');
+    // فقط لینک‌های خودِ فهرستِ منو. قبلاً `nav a[href^="#"]` بود که دکمه‌ی
+    // CTA را هم — چون داخل nav است — به‌عنوان یک آیتم متنیِ ساده وارد کشو
+    // می‌کرد؛ نتیجه دو آیتم با یک مقصد بود («تماس» و «رزرو مشاوره رایگان»).
+    var navLinks = header.querySelectorAll("nav ul a");
+    // CTA با قلاب صریح، نه با حدس زدنِ href. انتخابگر قبلی
+    // (`a[href="#contact"]:not(nav a)`) هیچ‌وقت چیزی برنمی‌گرداند.
+    var ctaLink = header.querySelector("a[data-cta]");
 
+    // متنِ آیتم‌ها از پنل مدیریت می‌آید، پس قبل از رفتن داخل HTML اسکیپ
+    // می‌شود — وگرنه یک برچسبِ حاوی & یا < منو را خراب می‌کند.
     var items = "";
     navLinks.forEach(function (a) {
       items +=
-        '<li><a href="' + a.getAttribute("href") + '" data-pv-close ' +
+        '<li><a href="' + escAttr(a.getAttribute("href")) + '" data-pv-close ' +
         'class="block rounded-xl px-3 py-3 text-[15px] font-medium text-on-dark/85 ' +
-        'transition-colors hover:bg-white/5 hover:text-white">' + a.textContent + "</a></li>";
+        'transition-colors hover:bg-white/5 hover:text-white">' + escHtml(a.textContent) + "</a></li>";
     });
     if (ctaLink) {
+      // مقصد از خودِ لینک خوانده می‌شود، نه ثابتِ "#contact" — وگرنه اگر
+      // مقصد CTA از پنل عوض شود، نسخه‌ی موبایلش سرِ جای قبلی می‌ماند.
       items +=
-        '<li class="pt-2"><a href="#contact" data-pv-close class="block rounded-xl ' +
+        '<li class="pt-2"><a href="' + escAttr(ctaLink.getAttribute("href")) +
+        '" data-pv-close class="block rounded-xl ' +
         'bg-gradient-to-l from-brand to-brand-2 px-4 py-3 text-center text-[15px] ' +
-        'font-medium text-white">' + ctaLink.textContent.trim() + "</a></li>";
+        'font-medium text-white">' + escHtml(ctaLink.textContent.trim()) + "</a></li>";
     }
 
     header.insertAdjacentHTML(
@@ -86,6 +109,17 @@
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") setOpen(false);
     });
+
+    // اگر پنجره به عرضِ دسکتاپ برسد در حالی که منو باز است، ببندش. خودِ CSS
+    // آن‌جا کشو را پنهان می‌کند، ولی حالتِ دکمه (aria-expanded و شکل ضربدر)
+    // باید با چیزی که کاربر می‌بیند بخواند — وگرنه صفحه‌خوان می‌گوید منو باز
+    // است در حالی که چیزی باز نیست.
+    var desktop = window.matchMedia("(min-width: 768px)");
+    var onBreakpoint = function (e) {
+      if (e.matches && document.body.classList.contains("pv-menu-open")) setOpen(false);
+    };
+    if (desktop.addEventListener) desktop.addEventListener("change", onBreakpoint);
+    else if (desktop.addListener) desktop.addListener(onBreakpoint); // سافاری قدیمی
   }
 
   /* ---- دکمه‌ی شناور موبایل ---- */
@@ -135,14 +169,11 @@
   var outcomeEl = actList && actList.parentElement.querySelector("p");
   var timers = [];
   var idx = 0;
+  var played = false; // آیا دمو دست‌کم یک بار پخش شده؟ (برای بازپخش بعد از resize)
 
   if (!chatList || !actList) return;
 
-  function esc(t) {
-    var d = document.createElement("div");
-    d.textContent = t;
-    return d.innerHTML;
-  }
+  var esc = escHtml;
 
   function render(i) {
     var s = DEMO[i];
@@ -164,7 +195,38 @@
     if (outcomeEl) outcomeEl.textContent = s.outcome;
   }
 
+  /* ---- قفلِ ارتفاع پنل ----
+     سناریوها تعداد پیام و اقدامِ متفاوتی دارند، پس با هر بار عوض کردن تب
+     ارتفاع کل بخش کم و زیاد می‌شد و صفحه زیر دستِ کاربر می‌پرید (اندازه‌گیری
+     شده: ۵۲۰ / ۴۹۳ / ۴۳۵ پیکسل).
+
+     به‌جای عددِ ثابت در CSS — که با هر ویرایشِ متن از پنل مدیریت غلط می‌شود —
+     ارتفاع همه‌ی سناریوها یک بار اندازه گرفته و بلندترینش به‌عنوان
+     `min-height` روی پنل گذاشته می‌شود. چون اندازه‌گیری به عرضِ واقعی وابسته
+     است، با تغییر اندازه‌ی پنجره دوباره حساب می‌شود. */
+  var panelEl = demo.querySelector('[role="tabpanel"]');
+
+  function lockHeight() {
+    if (!panelEl) return;
+    panelEl.style.minHeight = "";
+    var tallest = 0;
+    for (var i = 0; i < DEMO.length; i++) {
+      render(i);
+      tallest = Math.max(tallest, panelEl.offsetHeight);
+    }
+    render(idx); // برگرداندن سناریوی جاری
+    panelEl.style.minHeight = tallest + "px";
+
+    // render() آیتم‌ها را `pv-armed` (یعنی نامرئی) می‌سازد و منتظرِ play()
+    // می‌گذارد. اگر اندازه‌گیری بعد از پخشِ اولیه اتفاق بیفتد — مثلاً وقتی
+    // کاربر پنجره را تغییر اندازه می‌دهد — دیگر کسی play() را صدا نمی‌زند
+    // (IntersectionObserver یک‌بارمصرف است و disconnect شده) و پنل تا کلیکِ
+    // بعدی خالی می‌ماند. پس هر بار که قبلاً پخش شده، دوباره پخش می‌کنیم.
+    if (played) play();
+  }
+
   function play() {
+    played = true;
     timers.forEach(clearTimeout);
     timers = [];
     var msgs = chatList.querySelectorAll("li");
@@ -179,37 +241,81 @@
     });
   }
 
+  // فقط کلاس‌های *حالت* عوض می‌شوند، نه کل className.
+  //
+  // قبلاً این تابع className را از نو می‌نوشت و در نتیجه هر کلاسی که در
+  // _AgentDemo.cshtml روی تب‌ها بود (مثل w-full موبایل) با اولین کلیک پاک
+  // می‌شد. ضمناً آن فهرستِ کلاس باید دستی با فایل .cshtml هم‌گام می‌ماند.
+  var TAB_ON = ["border-brand/35", "bg-card", "text-brand-ink", "shadow-[0_6px_20px_-12px_rgba(99,102,241,0.55)]"];
+  var TAB_OFF = ["border-hairline", "bg-transparent", "text-on-light-muted", "hover:bg-card", "hover:text-on-light"];
+
   function select(i) {
     idx = i;
     [].forEach.call(tabs, function (t, k) {
       var on = k === i;
       t.setAttribute("aria-selected", String(on));
-      t.className =
-        "inline-flex items-center gap-2 rounded-xl border px-4 py-[11px] text-[14px] " +
-        "font-medium transition-colors duration-200 " +
-        (on
-          ? "border-brand/35 bg-card text-brand-ink shadow-[0_6px_20px_-12px_rgba(99,102,241,0.55)]"
-          : "border-hairline bg-transparent text-on-light-muted hover:bg-card hover:text-on-light");
+      // tabindex چرخشی: طبق الگوی استانداردِ tablist فقط تبِ فعال با Tab
+      // گرفته می‌شود و بین تب‌ها با کلیدهای جهت‌دار حرکت می‌کنیم.
+      t.tabIndex = on ? 0 : -1;
+      TAB_ON.forEach(function (c) { t.classList.toggle(c, on); });
+      TAB_OFF.forEach(function (c) { t.classList.toggle(c, !on); });
     });
+
+    // شناسه‌ی پنل باید همراه تبِ فعال جابه‌جا شود، وگرنه aria-controlsِ دو تبِ
+    // دیگر به شناسه‌ای اشاره می‌کند که در صفحه وجود ندارد و صفحه‌خوان پنل را
+    // همیشه به نام تبِ اول می‌خواند. (سرور فقط پنلِ سناریوی اول را رندر
+    // می‌کند، پس فقط یک شناسه در صفحه هست.)
+    if (panelEl && tabs[i]) {
+      var wanted = tabs[i].getAttribute("aria-controls");
+      if (wanted) panelEl.id = wanted;
+      panelEl.setAttribute("aria-labelledby", tabs[i].id);
+    }
+
     render(i);
     play();
   }
 
   [].forEach.call(tabs, function (t, i) {
     t.addEventListener("click", function () { select(i); });
+    // حرکت با کلیدهای جهت‌دار داخل نوار تب — انتظارِ استانداردِ یک tablist.
+    // صفحه راست‌به‌چپ است، پس «راست» یعنی تبِ قبلی و «چپ» یعنی تبِ بعدی.
+    t.addEventListener("keydown", function (e) {
+      var last = tabs.length - 1;
+      var to = null;
+      if (e.key === "ArrowLeft") to = i === last ? 0 : i + 1;
+      else if (e.key === "ArrowRight") to = i === 0 ? last : i - 1;
+      else if (e.key === "Home") to = 0;
+      else if (e.key === "End") to = last;
+      if (to === null) return;
+      e.preventDefault();
+      select(to);
+      tabs[to].focus();
+    });
   });
 
   var replay = demo.querySelector('button:not([role="tab"])');
   if (replay) replay.addEventListener("click", function () { render(idx); play(); });
 
   render(0);
+  lockHeight();
+
+  // عرضِ پنل که عوض شود ارتفاعِ لازم هم عوض می‌شود؛ با تأخیر تا هنگام
+  // کشیدنِ لبه‌ی پنجره ده‌ها بار محاسبه نشود.
+  var resizeTimer;
+  var lastWidth = window.innerWidth;
+  window.addEventListener("resize", function () {
+    if (window.innerWidth === lastWidth) return; // روی موبایل، باز/بسته شدن نوار مرورگر
+    lastWidth = window.innerWidth;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(lockHeight, 200);
+  });
+
   if ("IntersectionObserver" in window) {
-    var panel = demo.querySelector('[role="tabpanel"]');
-    if (panel) {
+    if (panelEl) {
       var io = new IntersectionObserver(function (es) {
         if (es[0].isIntersecting) { play(); io.disconnect(); }
       }, { threshold: 0.25 });
-      io.observe(panel);
+      io.observe(panelEl);
     }
   } else {
     play();
