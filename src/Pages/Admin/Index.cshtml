@@ -29,6 +29,45 @@
         }
     </a>
 
+    @* وبلاگ و نظرها — کنار صندوق لید، چون هر سه «کارِ روزانه»اند نه محتوای
+       ثابتِ صفحه. *@
+    <div class="grid gap-3 sm:grid-cols-2">
+        <a href="/admin/posts" class="flex items-center justify-between gap-4 rounded-2xl border border-hairline bg-card p-5 transition-colors hover:border-brand/35">
+            <div>
+                <span class="text-[15px] font-bold text-on-light">وبلاگ</span>
+                <p class="mt-1 text-[13px] leading-[1.9] text-on-light-muted">
+                    @if (Model.PostCount == 0)
+                    {
+                        <text>هنوز نوشته‌ای ساخته نشده. هر نوشته یک صفحه‌ی تازه برای گوگل است.</text>
+                    }
+                    else
+                    {
+                        <text>@PersianYear.ToPersianDigits(Model.PostCount.ToString()) نوشته</text>
+                        @if (Model.DraftCount > 0)
+                        {
+                            <text>، @PersianYear.ToPersianDigits(Model.DraftCount.ToString()) تای آن پیش‌نویس.</text>
+                        }
+                    }
+                </p>
+            </div>
+        </a>
+
+        <a href="/admin/comments" class="flex items-center justify-between gap-4 rounded-2xl border p-5 transition-colors @(Model.PendingComments > 0 ? "border-brand/25 bg-brand/[0.04] hover:border-brand/45" : "border-hairline bg-card hover:border-brand/35")">
+            <div>
+                <span class="text-[15px] font-bold text-on-light">نظرها</span>
+                <p class="mt-1 text-[13px] leading-[1.9] text-on-light-muted">
+                    @(Model.PendingComments == 0
+                        ? "نظرِ منتظرِ تأییدی نیست."
+                        : $"{PersianYear.ToPersianDigits(Model.PendingComments.ToString())} نظر منتظر تأیید است.")
+                </p>
+            </div>
+            @if (Model.PendingComments > 0)
+            {
+                <span class="grid h-8 min-w-8 shrink-0 place-items-center rounded-full bg-brand px-2 text-[13px] font-bold text-white">@PersianYear.ToPersianDigits(Model.PendingComments.ToString())</span>
+            }
+        </a>
+    </div>
+
     @if (Model.Rejected.Count > 0)
     {
         <p class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] leading-[1.9] text-amber-900">
@@ -37,7 +76,7 @@
         </p>
     }
 
-    @* بخش‌ها گروه‌بندی‌شده — دقیقاً همان گروه‌بندیِ ستون کناری، تا کاربر
+    @* بخش‌ها گروه‌بندی‌شده — دقیقاً همان گروه‌بندیِ نوار تب‌های بالا، تا کاربر
        یک نقشه‌ی ذهنی داشته باشد نه دو تا. *@
     @foreach (var group in AdminLabels.Groups)
     {

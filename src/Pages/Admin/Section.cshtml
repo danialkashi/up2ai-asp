@@ -450,6 +450,19 @@
        صفحه شامل ?handler=List است و فرمِ بدون action دوباره همان دستور را
        اجرا می‌کرد — یعنی دکمه‌ی ذخیره به‌جای ذخیره، یک مورد دیگر اضافه می‌کرد. *@
     <form method="post" asp-page="/Admin/Section" asp-route-section="@sec" class="flex flex-col gap-6">
+        @* دکمه‌ی پیش‌فرضِ فرم — عمداً *اولین* دکمه‌ی submit در ترتیب DOM.
+
+           مرورگر وقتی کاربر داخل یک فیلد Enter می‌زند، اولین دکمه‌ی submitِ
+           فرم را می‌زند. اولین دکمه‌ی فرم تا حالا «افزودن به فهرست» بود، پس
+           Enter زدن وسط تایپ در هر بخشی که فهرست دارد (منو، سؤالات، خدمات،
+           مراحل، …) به‌جای ذخیره، یک موردِ خالی به فهرست اضافه می‌کرد و
+           تغییرات ذخیره‌نشده می‌ماند.
+
+           پنهان است ولی حذف‌شده نیست: با display:none مرورگرها آن را
+           دکمه‌ی پیش‌فرض حساب نمی‌کنند. *@
+        <button type="submit" tabindex="-1" aria-hidden="true"
+                style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0"></button>
+
         @{ await Node(Model.Working, Model.Defaults, sec, 0, false); }
 
         @* نوار چسبان پایین — تا در فرم‌های بلند دکمه‌ی ذخیره گم نشود *@

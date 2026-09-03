@@ -1,0 +1,107 @@
+@page "/admin/posts"
+@model Up2Ai.Pages.Admin.PostsModel
+@using Up2Ai.Services
+@{ Layout = "_AdminLayout"; }
+
+<div class="flex flex-col gap-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <h1 class="text-[24px] font-bold text-on-light">وبلاگ</h1>
+            <p class="mt-2 max-w-prose text-[14px] leading-[2] text-on-light-muted">
+                هر نوشته یک صفحه‌ی جدا با آدرس خودش می‌سازد — همان چیزی که
+                باعث می‌شود سایت در گوگل با عبارت‌های بیشتری پیدا شود. تا
+                «انتشار» نزنی، نوشته روی سایت دیده نمی‌شود.
+            </p>
+        </div>
+        <a href="/admin/posts/edit" class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-4 text-[14px] font-medium text-white transition-transform duration-200 hover:-translate-y-0.5">نوشته‌ی تازه</a>
+    </div>
+
+    @if (Model.Notice is not null)
+    {
+        <p role="status" class="rounded-xl border border-brand/25 bg-brand/[0.05] px-4 py-3 text-[13.5px] text-on-light">@Model.Notice</p>
+    }
+
+    @if (Model.Posts.Count == 0)
+    {
+        <div class="rounded-2xl border border-dashed border-hairline bg-card px-5 py-10 text-center text-[14px] leading-[2] text-on-light-muted">
+            هنوز نوشته‌ای ساخته نشده. با دکمه‌ی «نوشته‌ی تازه» شروع کن.
+        </div>
+    }
+    else
+    {
+        <ul class="flex flex-col gap-3">
+            @foreach (var post in Model.Posts)
+            {
+                var comments = Model.CommentCounts.GetValueOrDefault(post.Id);
+                <li class="rounded-2xl border bg-card p-5 @(post.Published ? "border-hairline" : "border-amber-300")">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-[15px] font-bold text-on-light">@post.Title</span>
+                                @if (post.Published)
+                                {
+                                    <span class="rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">منتشرشده</span>
+                                }
+                                else
+                                {
+                                    <span class="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">پیش‌نویس</span>
+                                }
+                                @if (!post.CommentsOpen)
+                                {
+                                    <span class="rounded-md bg-surface-2 px-2 py-0.5 text-[11px] text-on-light-muted">نظرها بسته</span>
+                                }
+                            </div>
+                            <p class="mt-1 text-[12.5px] text-on-light-muted" dir="ltr">/blog/@post.Slug</p>
+                        </div>
+                        <div class="shrink-0 text-end text-[12.5px] text-on-light-muted">
+                            <div>@PersianYear.FormatDate(post.PublishedAt)</div>
+                            @if (comments > 0)
+                            {
+                                <div class="mt-1">@PersianYear.ToPersianDigits(comments.ToString()) نظر</div>
+                            }
+                        </div>
+                    </div>
+
+                    @if (post.Excerpt.Length > 0)
+                    {
+                        <p class="mt-3 text-[13.5px] leading-[1.95] text-on-light-muted">@post.Excerpt</p>
+                    }
+
+                    <div class="mt-4 flex flex-wrap items-center gap-2">
+                        <a href="/admin/posts/edit?id=@post.Id" class="inline-flex min-h-11 items-center rounded-lg border border-hairline px-3 text-[13px] font-medium text-on-light transition-colors hover:border-brand/35">ویرایش</a>
+
+                        @* پیش‌نویس روی سایت آدرسی ندارد، پس لینکِ «دیدن» فقط
+                           برای نوشته‌ی منتشرشده معنی دارد. *@
+                        @if (post.Published)
+                        {
+                            <a href="/blog/@Uri.EscapeDataString(post.Slug)" target="_blank" rel="noopener" class="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-hairline px-3 text-[13px] font-medium text-on-light transition-colors hover:border-brand/35">دیدن روی سایت<span aria-hidden="true" class="text-[11px]">↗</span></a>
+                        }
+
+                        <form method="post" asp-page-handler="Toggle">
+                            <input type="hidden" name="id" value="@post.Id" />
+                            <button type="submit" class="inline-flex min-h-11 items-center rounded-lg border border-hairline px-3 text-[13px] font-medium text-on-light transition-colors hover:border-brand/35">@(post.Published ? "برگرداندن به پیش‌نویس" : "انتشار")</button>
+                        </form>
+
+                        @if (Model.ConfirmDeleteId == post.Id)
+                        {
+                            @* مرحله‌ی دوم حذف — نوشته و نظرهایش با هم می‌روند،
+                               پس صریح گفته می‌شود. *@
+                            <span class="inline-flex flex-wrap items-center gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-[13px] text-red-800">
+                                این نوشته و نظرهایش حذف شوند؟
+                                <form method="post" asp-page-handler="Delete">
+                                    <input type="hidden" name="id" value="@post.Id" />
+                                    <button type="submit" class="inline-flex min-h-11 items-center rounded-lg bg-red-600 px-3 text-[13px] font-medium text-white transition-colors hover:bg-red-700">بله، حذف کن</button>
+                                </form>
+                                <a href="/admin/posts" class="inline-flex min-h-11 items-center rounded-lg px-2 text-[13px] font-medium text-on-light">انصراف</a>
+                            </span>
+                        }
+                        else
+                        {
+                            <a href="/admin/posts?confirmDelete=@post.Id" class="inline-flex min-h-11 items-center rounded-lg px-3 text-[13px] text-on-light-muted transition-colors hover:text-red-700">حذف</a>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+</div>

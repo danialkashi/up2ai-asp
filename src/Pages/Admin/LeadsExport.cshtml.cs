@@ -14,8 +14,8 @@ public class LeadsExportModel : AdminPageModel
 {
     private readonly LeadStore _leads;
 
-    public LeadsExportModel(ContentStore store, AdminAuth auth, LeadStore leads)
-        : base(store, auth) => _leads = leads;
+    public LeadsExportModel(ContentStore store, AdminAuth auth, AdminUserStore users, LeadStore leads)
+        : base(store, auth, users) => _leads = leads;
 
     public IActionResult OnGet()
     {

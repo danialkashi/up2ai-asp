@@ -9,8 +9,19 @@ public class IndexModel : AdminPageModel
 {
     private readonly LeadStore _leads;
 
-    public IndexModel(ContentStore store, AdminAuth auth, LeadStore leads)
-        : base(store, auth) => _leads = leads;
+    private readonly BlogStore _blog;
+
+    public IndexModel(ContentStore store, AdminAuth auth, AdminUserStore users, LeadStore leads, BlogStore blog)
+        : base(store, auth, users)
+    {
+        _leads = leads;
+        _blog = blog;
+    }
+
+    /// <summary>شمارشِ وبلاگ برای کارت‌های خانه‌ی پنل.</summary>
+    public int PostCount { get; private set; }
+    public int DraftCount { get; private set; }
+    public int PendingComments { get; private set; }
 
     public int LeadCount { get; private set; }
     public int UnhandledLeads { get; private set; }
@@ -34,6 +45,11 @@ public class IndexModel : AdminPageModel
         var leads = _leads.List();
         LeadCount = leads.Count;
         UnhandledLeads = leads.Count(l => !l.Handled);
+
+        var posts = _blog.All();
+        PostCount = posts.Count;
+        DraftCount = posts.Count(p => !p.Published);
+        PendingComments = _blog.PendingCount();
         return Page();
     }
 

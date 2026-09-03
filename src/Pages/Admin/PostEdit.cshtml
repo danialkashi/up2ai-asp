@@ -1,0 +1,116 @@
+@page "/admin/posts/edit"
+@model Up2Ai.Pages.Admin.PostEditModel
+@using Up2Ai.Services
+@{
+    Layout = "_AdminLayout";
+    var fieldCls = "w-full rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors placeholder:text-on-light-muted focus:border-brand";
+}
+
+<div class="flex flex-col gap-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <h1 class="text-[24px] font-bold text-on-light">@(Model.IsNew ? "نوشته‌ی تازه" : "ویرایش نوشته")</h1>
+            <p class="mt-2 max-w-prose text-[14px] leading-[2] text-on-light-muted">
+                عنوان و متن را پر کن. تا تیکِ «منتشر شود» را نزنی، نوشته فقط
+                برای خودت قابل دیدن است و روی سایت و در گوگل نمی‌آید.
+            </p>
+        </div>
+        <a href="/admin/posts" class="inline-flex min-h-11 shrink-0 items-center rounded-xl border border-hairline bg-card px-4 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35">بازگشت به فهرست</a>
+    </div>
+
+    @if (Model.Saved is not null)
+    {
+        <p role="status" class="rounded-xl border border-brand/25 bg-brand/[0.05] px-4 py-3 text-[13.5px] text-on-light">
+            @Model.Saved
+            @if (Model.SavedPublished && Model.SavedSlug.Length > 0)
+            {
+                <a href="/blog/@Uri.EscapeDataString(Model.SavedSlug)" target="_blank" rel="noopener" class="ms-2 font-medium text-brand-ink underline underline-offset-4">دیدن روی سایت ↗</a>
+            }
+        </p>
+    }
+
+    @if (Model.Error is not null)
+    {
+        <p role="alert" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-800">@Model.Error</p>
+    }
+
+    <form method="post" class="flex flex-col gap-5">
+        <input type="hidden" name="Id" value="@Model.Id" />
+
+        <div class="flex flex-col gap-2">
+            <label for="title" class="text-[14px] font-medium text-on-light">عنوان</label>
+            <input id="title" name="Title" type="text" class="@fieldCls" value="@Model.Title" />
+            <p class="text-[12.5px] leading-[1.9] text-on-light-muted">همان چیزی که در نتیجه‌ی گوگل به‌عنوان تیتر آبی دیده می‌شود. کوتاه و مشخص بنویس.</p>
+        </div>
+
+        <div class="flex flex-col gap-2">
+            <label for="slug" class="text-[14px] font-medium text-on-light">آدرس نوشته</label>
+            <input id="slug" name="Slug" type="text" class="@fieldCls" value="@Model.Slug" placeholder="خالی بگذار تا از روی عنوان ساخته شود" />
+            <p class="text-[12.5px] leading-[1.9] text-on-light-muted">
+                آدرس صفحه: <code class="text-brand-ink" dir="ltr">/blog/@(Model.Slug.Length > 0 ? Model.Slug : "…")</code>
+                — اگر خالی باشد از روی عنوان ساخته می‌شود. بعد از انتشار عوضش نکن؛ لینک‌های قبلی می‌شکنند.
+            </p>
+        </div>
+
+        <div class="flex flex-col gap-2">
+            <label for="excerpt" class="text-[14px] font-medium text-on-light">خلاصه</label>
+            <textarea id="excerpt" name="Excerpt" rows="2" class="@fieldCls min-h-20 resize-y leading-[1.9]">@Model.Excerpt</textarea>
+            <p class="text-[12.5px] leading-[1.9] text-on-light-muted">دو خط که در فهرست وبلاگ و در نتیجه‌ی گوگل زیر عنوان می‌آید. خالی بماند، از ابتدای متن ساخته می‌شود.</p>
+        </div>
+
+        <div class="flex flex-col gap-2">
+            <label for="body" class="text-[14px] font-medium text-on-light">متن نوشته</label>
+            <textarea id="body" name="Body" rows="18" class="@fieldCls min-h-96 resize-y leading-[2]" dir="rtl">@Model.Body</textarea>
+            @* راهنمای نشانه‌ها همین‌جا و نه در مستندات: کسی که این فرم را پر
+               می‌کند همین‌جا لازمش دارد. *@
+            <div class="rounded-xl border border-hairline bg-surface-2 px-4 py-3 text-[12.5px] leading-[2] text-on-light-muted">
+                <span class="font-medium text-on-light">نشانه‌گذاری:</span>
+                خط خالی = پاراگراف تازه ·
+                <code class="text-brand-ink" dir="ltr">## تیتر</code> ·
+                <code class="text-brand-ink" dir="ltr">### تیتر کوچک‌تر</code> ·
+                <code class="text-brand-ink" dir="ltr">- فهرست</code> ·
+                <code class="text-brand-ink" dir="ltr">&gt; نقل‌قول</code> ·
+                <code class="text-brand-ink" dir="ltr">**پررنگ**</code> ·
+                <code class="text-brand-ink" dir="ltr">[متن](آدرس)</code>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+            <label for="tags" class="text-[14px] font-medium text-on-light">برچسب‌ها</label>
+            <input id="tags" name="TagsText" type="text" class="@fieldCls" value="@Model.TagsText" placeholder="اتوماسیون، اینستاگرام، پشتیبانی" />
+            <p class="text-[12.5px] leading-[1.9] text-on-light-muted">با ویرگول جدا کن. حداکثر هشت برچسب.</p>
+        </div>
+
+        <div class="flex flex-col gap-3 rounded-xl border border-hairline bg-card p-4">
+            <label class="flex items-center gap-3 text-[14px] text-on-light">
+                <input type="checkbox" name="Published" value="true" checked="@(Model.Published ? "checked" : null)" class="h-5 w-5 rounded border-hairline text-brand" />
+                @* تیکِ برداشته‌شده هیچ مقداری نمی‌فرستد؛ این فیلدِ پنهان یعنی
+                   سرور همیشه یک مقدار صریح می‌گیرد. (همان کاری که تگ‌هلپرِ
+                   asp-for خودکار انجام می‌دهد.) *@
+                <input type="hidden" name="Published" value="false" />
+                منتشر شود (روی سایت دیده شود)
+            </label>
+            <label class="flex items-center gap-3 text-[14px] text-on-light">
+                <input type="checkbox" name="CommentsOpen" value="true" checked="@(Model.CommentsOpen ? "checked" : null)" class="h-5 w-5 rounded border-hairline text-brand" />
+                <input type="hidden" name="CommentsOpen" value="false" />
+                ثبت نظر برای این نوشته باز باشد
+            </label>
+        </div>
+
+        <div>
+            <button type="submit" class="inline-flex min-h-11 items-center rounded-xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-6 text-[15px] font-medium text-white transition-transform duration-200 hover:-translate-y-0.5">ذخیره</button>
+        </div>
+    </form>
+
+    @if (Model.PreviewHtml.Length > 0)
+    {
+        @* پیش‌نمایشِ سرور-رندر: بعد از هر ذخیره تازه می‌شود. برای پیش‌نمایشِ
+           زنده حین تایپ، جاوااسکریپت لازم بود و پنل عمداً بدون آن کار
+           می‌کند. *@
+        <section class="rounded-2xl border border-hairline bg-card p-6">
+            <h2 class="text-[16px] font-bold text-on-light">پیش‌نمایش متن</h2>
+            <p class="mt-1 text-[12.5px] text-on-light-muted">همان‌طور که روی سایت دیده می‌شود (بعد از آخرین ذخیره).</p>
+            <div class="mt-4 border-t border-hairline pt-2">@Html.Raw(Model.PreviewHtml)</div>
+        </section>
+    }
+</div>

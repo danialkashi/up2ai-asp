@@ -18,11 +18,13 @@ public abstract class AdminPageModel : PageModel
 {
     protected readonly ContentStore Store;
     public AdminAuth Auth { get; }
+    protected readonly AdminUserStore Users;
 
-    protected AdminPageModel(ContentStore store, AdminAuth auth)
+    protected AdminPageModel(ContentStore store, AdminAuth auth, AdminUserStore users)
     {
         Store = store;
         Auth = auth;
+        Users = users;
     }
 
     public Cv C { get; private set; }
@@ -34,13 +36,40 @@ public abstract class AdminPageModel : PageModel
 
     public bool Authed { get; private set; }
 
+    /// <summary>شناسه‌ی کاربرِ واردشده — یا <see cref="AdminUserStore.EnvUserId"/> برای ورودِ محیطی.</summary>
+    public string? CurrentUserId { get; private set; }
+
+    /// <summary>کاربرِ واردشده، اگر کاربرِ واقعیِ انبار باشد (نه ورودِ محیطی).</summary>
+    public AdminUser? CurrentUser { get; private set; }
+
+    /// <summary>نامی که در هدر پنل نشان داده می‌شود.</summary>
+    public string CurrentUserLabel => CurrentUser?.Label
+        ?? (CurrentUserId == AdminUserStore.EnvUserId ? "مدیر سایت" : "");
+
     public override void OnPageHandlerExecuting(Microsoft.AspNetCore.Mvc.Filters.PageHandlerExecutingContext context)
     {
         C = new Cv(Store.Get());
         ViewData["Content"] = C;
         ViewData["NoIndex"] = true;
-        Authed = Configured && Auth.ReadToken(Request.Cookies[AdminAuth.CookieName]);
+
+        CurrentUserId = Configured ? Auth.ReadToken(Request.Cookies[AdminAuth.CookieName]) : null;
+        CurrentUser = CurrentUserId is not null && CurrentUserId != AdminUserStore.EnvUserId
+            ? Users.ById(CurrentUserId)
+            : null;
+
+        // کاربری که حذف یا غیرفعال شده نباید با کوکیِ قبلی‌اش داخل بماند.
+        // بدون این بررسی، «حذف کاربر» تا انقضای کوکی (۱۲ ساعت) هیچ اثری
+        // نداشت — یعنی دقیقاً وقتی که به آن نیاز داری کار نمی‌کرد.
+        if (CurrentUserId is not null && CurrentUserId != AdminUserStore.EnvUserId
+            && (CurrentUser is null || !CurrentUser.Active))
+        {
+            CurrentUserId = null;
+            CurrentUser = null;
+        }
+
+        Authed = CurrentUserId is not null;
         ViewData["Authed"] = Authed;
+        ViewData["UserLabel"] = CurrentUserLabel;
         base.OnPageHandlerExecuting(context);
     }
 

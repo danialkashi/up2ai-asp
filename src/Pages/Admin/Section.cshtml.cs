@@ -25,7 +25,7 @@ namespace Up2Ai.Pages.Admin;
 /// </summary>
 public class SectionModel : AdminPageModel
 {
-    public SectionModel(ContentStore store, AdminAuth auth) : base(store, auth) { }
+    public SectionModel(ContentStore store, AdminAuth auth, AdminUserStore users) : base(store, auth, users) { }
 
     public string SectionKey { get; private set; } = "";
     public AdminLabels.SectionMeta Meta { get; private set; } = new("", "");
@@ -54,6 +54,19 @@ public class SectionModel : AdminPageModel
     /// <summary>آیا مقدار فعلی با پیش‌فرض فرق دارد؟ (برای فعال بودن دکمه‌ی بازگشت به پیش‌فرض)</summary>
     public bool ChangedFromDefault => Working.ToJsonString() != Defaults.ToJsonString();
 
+    /// <summary>
+    /// کلیدِ بخش را با هر حالتِ حروفی پیدا می‌کند و شکلِ درستش را برمی‌گرداند.
+    ///
+    /// دو کلید از محتوا حرفِ بزرگ دارند (`navItems` و `previewCopy`). لینک‌های
+    /// خودِ پنل درست‌اند، ولی آدرسِ تایپ‌شده یا بوکمارک‌شده‌ی
+    /// `/admin/navitems` — که برای هر کسی طبیعی است — ۴۰۴ می‌گرفت.
+    /// </summary>
+    private string? CanonicalKey(string section) =>
+        Store.Defaults is JsonObject defs
+            ? defs.Select(p => p.Key)
+                  .FirstOrDefault(k => string.Equals(k, section, StringComparison.OrdinalIgnoreCase))
+            : null;
+
     private bool Load(string section)
     {
         if (Store.Defaults is not JsonObject defs || !defs.ContainsKey(section)) return false;
@@ -68,6 +81,14 @@ public class SectionModel : AdminPageModel
     {
         var guard = RequireAuth();
         if (guard is not null) return guard;
+
+        // آدرس با حروفِ متفاوت به شکلِ درستش ری‌دایرکت می‌شود، تا در ادامه
+        // فقط یک آدرسِ معتبر برای هر بخش وجود داشته باشد (هم برای تبِ فعال،
+        // هم برای ری‌دایرکتِ بعد از ذخیره).
+        var canonical = CanonicalKey(section);
+        if (canonical is not null && canonical != section)
+            return RedirectToPage("/Admin/Section", new { section = canonical });
+
         if (!Load(section)) return NotFound();
 
         // پیام موفقیت بعد از ری‌دایرکتِ ذخیره
@@ -212,8 +233,14 @@ public class SectionModel : AdminPageModel
                 var template = arr.Count > 0
                     ? arr[0]
                     : AdminLabels.TemplateFor(path[(path.LastIndexOf('.') + 1)..]);
+                // سقف عمدی: طولِ فهرست از فرم می‌آید و فرم را می‌شود دست‌کاری
+                // کرد. بدون سقف، یک `n:faq.faqs=2000000000` کافی بود تا همین
+                // حلقه تا پر شدن حافظه‌ی سرور جلو برود. هیچ فهرستی در این سایت
+                // به دویست مورد هم نمی‌رسد.
+                const int maxItems = 200;
                 var count = 0;
-                if (int.TryParse(Request.Form[$"n:{path}"].ToString(), out var n)) count = Math.Max(0, n);
+                if (int.TryParse(Request.Form[$"n:{path}"].ToString(), out var n))
+                    count = Math.Clamp(n, 0, maxItems);
 
                 for (var i = 0; i < count; i++)
                 {

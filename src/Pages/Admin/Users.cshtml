@@ -1,0 +1,148 @@
+@page "/admin/users"
+@model Up2Ai.Pages.Admin.UsersModel
+@using Up2Ai.Services
+@{
+    Layout = "_AdminLayout";
+    var fieldCls = "w-full rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors placeholder:text-on-light-muted focus:border-brand";
+}
+
+<div class="flex flex-col gap-6">
+    <div>
+        <h1 class="text-[24px] font-bold text-on-light">کاربران پنل</h1>
+        <p class="mt-2 max-w-prose text-[14px] leading-[2] text-on-light-muted">
+            هر کسی که باید به پنل دسترسی داشته باشد، کاربر خودش را می‌گیرد —
+            با رمزِ خودش. رمزها به‌صورت هش ذخیره می‌شوند و هیچ‌کس (حتی همین
+            صفحه) نمی‌تواند رمزِ کسی را ببیند؛ فقط می‌شود رمز تازه گذاشت.
+        </p>
+    </div>
+
+    @if (Model.Notice is not null)
+    {
+        <p role="status" class="rounded-xl border border-brand/25 bg-brand/[0.05] px-4 py-3 text-[13.5px] text-on-light">@Model.Notice</p>
+    }
+    @if (Model.Error is not null)
+    {
+        <p role="alert" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-800">@Model.Error</p>
+    }
+
+    @if (Model.All.Count == 0)
+    {
+        <div class="rounded-2xl border border-dashed border-hairline bg-card px-5 py-8 text-[14px] leading-[2] text-on-light-muted">
+            هنوز کاربری ساخته نشده، پس ورود با همان رمزی انجام می‌شود که در
+            تنظیمات سرور (<code dir="ltr">ADMIN_PASSWORD_HASH</code>) گذاشته شده.
+            اولین کاربر را که بسازی، فرم ورود نام کاربری هم می‌گیرد.
+        </div>
+    }
+    else
+    {
+        <ul class="flex flex-col gap-3">
+            @foreach (var user in Model.All)
+            {
+                var isMe = user.Id == Model.CurrentUserId;
+                <li class="rounded-2xl border bg-card p-5 @(user.Active ? "border-hairline" : "border-hairline opacity-70")">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-[15px] font-bold text-on-light" dir="ltr">@user.Username</span>
+                                @if (user.DisplayName.Length > 0)
+                                {
+                                    <span class="text-[13px] text-on-light-muted">@user.DisplayName</span>
+                                }
+                                @if (isMe)
+                                {
+                                    <span class="rounded-md bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand-ink">خودت</span>
+                                }
+                                @if (!user.Active)
+                                {
+                                    <span class="rounded-md bg-surface-2 px-2 py-0.5 text-[11px] text-on-light-muted">غیرفعال</span>
+                                }
+                            </div>
+                            <p class="mt-1 text-[12.5px] text-on-light-muted">
+                                ساخته‌شده: @PersianYear.FormatDate(user.CreatedAt)
+                                @if (user.LastLoginAt.Length > 0)
+                                {
+                                    <span> · آخرین ورود: @PersianYear.FormatDate(user.LastLoginAt)</span>
+                                }
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap items-center gap-2">
+                        <a href="/admin/users?changePassword=@user.Id" class="inline-flex min-h-11 items-center rounded-lg border border-hairline px-3 text-[13px] font-medium text-on-light transition-colors hover:border-brand/35">تغییر رمز</a>
+
+                        <form method="post" asp-page-handler="Toggle">
+                            <input type="hidden" name="id" value="@user.Id" />
+                            <button type="submit" class="inline-flex min-h-11 items-center rounded-lg border border-hairline px-3 text-[13px] font-medium text-on-light transition-colors hover:border-brand/35">@(user.Active ? "غیرفعال کردن" : "فعال کردن")</button>
+                        </form>
+
+                        @if (Model.ConfirmDeleteId == user.Id)
+                        {
+                            <span class="inline-flex flex-wrap items-center gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-[13px] text-red-800">
+                                @(isMe ? "خودت را حذف می‌کنی و از پنل بیرون می‌روی. مطمئنی؟" : "این کاربر حذف شود؟")
+                                <form method="post" asp-page-handler="Delete">
+                                    <input type="hidden" name="id" value="@user.Id" />
+                                    <button type="submit" class="inline-flex min-h-11 items-center rounded-lg bg-red-600 px-3 text-[13px] font-medium text-white transition-colors hover:bg-red-700">بله، حذف کن</button>
+                                </form>
+                                <a href="/admin/users" class="inline-flex min-h-11 items-center rounded-lg px-2 text-[13px] font-medium text-on-light">انصراف</a>
+                            </span>
+                        }
+                        else
+                        {
+                            <a href="/admin/users?confirmDelete=@user.Id" class="inline-flex min-h-11 items-center rounded-lg px-3 text-[13px] text-on-light-muted transition-colors hover:text-red-700">حذف</a>
+                        }
+                    </div>
+
+                    @if (Model.PasswordFormFor == user.Id)
+                    {
+                        <form method="post" asp-page-handler="Password" class="mt-4 flex flex-wrap items-end gap-3 border-t border-hairline pt-4">
+                            <input type="hidden" name="PasswordUserId" value="@user.Id" />
+                            <div class="flex min-w-56 flex-1 flex-col gap-2">
+                                <label for="pw-@user.Id" class="text-[13px] font-medium text-on-light">رمز تازه</label>
+                                <input id="pw-@user.Id" name="NewPasswordForUser" type="password" autocomplete="new-password" dir="ltr" class="@fieldCls" />
+                            </div>
+                            <button type="submit" class="inline-flex min-h-11 items-center rounded-xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-4 text-[14px] font-medium text-white">ثبت رمز</button>
+                            <a href="/admin/users" class="inline-flex min-h-11 items-center rounded-xl px-3 text-[13px] font-medium text-on-light">انصراف</a>
+                        </form>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    @* ---------------------------- کاربر تازه ---------------------------- *@
+    <section class="rounded-2xl border border-hairline bg-card p-6">
+        <h2 class="text-[16px] font-bold text-on-light">کاربر تازه</h2>
+        <form method="post" asp-page-handler="Add" class="mt-4 flex flex-col gap-4">
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div class="flex flex-col gap-2">
+                    <label for="new-username" class="text-[13px] font-medium text-on-light">نام کاربری</label>
+                    <input id="new-username" name="NewUsername" type="text" dir="ltr" autocomplete="off" class="@fieldCls" value="@Model.NewUsername" />
+                    <p class="text-[12px] text-on-light-muted">حروف و رقم انگلیسی، بین ۳ تا ۳۲ کاراکتر.</p>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label for="new-display" class="text-[13px] font-medium text-on-light">نام نمایشی (اختیاری)</label>
+                    <input id="new-display" name="NewDisplayName" type="text" class="@fieldCls" value="@Model.NewDisplayName" />
+                    <p class="text-[12px] text-on-light-muted">همان چیزی که بالای پنل کنار دکمه‌ی خروج دیده می‌شود.</p>
+                </div>
+            </div>
+            <div class="flex flex-col gap-2">
+                <label for="new-password" class="text-[13px] font-medium text-on-light">رمز</label>
+                <input id="new-password" name="NewPassword" type="password" dir="ltr" autocomplete="new-password" class="@fieldCls" />
+                <p class="text-[12px] text-on-light-muted">حداقل ۱۰ کاراکتر. جایی ذخیره نمی‌شود — فقط هشش.</p>
+            </div>
+            <div>
+                <button type="submit" class="inline-flex min-h-11 items-center rounded-xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-5 text-[14px] font-medium text-white transition-transform duration-200 hover:-translate-y-0.5">ساختن کاربر</button>
+            </div>
+        </form>
+    </section>
+
+    @if (Model.EnvLoginAvailable)
+    {
+        <p class="rounded-xl border border-dashed border-hairline bg-card px-4 py-3 text-[12.5px] leading-[1.95] text-on-light-muted">
+            راهِ ورودِ پشتیبان (رمزِ <code dir="ltr">ADMIN_PASSWORD_HASH</code> در تنظیمات سرور) هنوز فعال است؛
+            یعنی اگر رمز همه‌ی کاربرها فراموش شود، باز هم راهی برای ورود هست.
+            برای بستنش، همان متغیر را از تنظیمات سرور بردار — ولی اول مطمئن شو
+            رمزِ دست‌کم یک کاربر را داری.
+        </p>
+    }
+</div>

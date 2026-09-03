@@ -11,14 +11,27 @@ else
     <form method="post" class="mx-auto flex max-w-sm flex-col gap-4 rounded-2xl border border-hairline bg-card p-6 sm:p-8">
         <h1 class="text-[20px] font-bold text-on-light">ورود به پنل</h1>
 
-        @* فیلد پنهانِ نام کاربری: پنل فقط یک حساب دارد، ولی بدون این فیلد
-           مرورگر و رمزدان هشدار دسترس‌پذیری می‌دهند و رمز را درست ذخیره
-           نمی‌کنند. *@
-        <input type="text" name="username" value="admin" readonly hidden autocomplete="username" />
+        @if (Model.ShowUsername)
+        {
+            <div class="flex flex-col gap-1.5">
+                <label for="username" class="text-[13px] font-medium text-on-light">نام کاربری</label>
+                <input id="username" name="username" type="text" required autofocus autocomplete="username"
+                       class="min-h-11 rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors focus:border-brand"
+                       dir="ltr" value="@Model.Username" />
+            </div>
+        }
+        else
+        {
+            @* هنوز هیچ کاربری ساخته نشده، پس ورود فقط با رمزِ تنظیماتِ سرور
+               است و فرم همان فرمِ تک‌فیلدیِ قبلی می‌ماند. این فیلدِ پنهان
+               فقط برای رمزدانِ مرورگر است — بدون آن، رمز را درست ذخیره
+               نمی‌کند و هشدار دسترس‌پذیری هم می‌دهد. *@
+            <input type="text" name="username" value="admin" readonly hidden autocomplete="username" />
+        }
 
         <div class="flex flex-col gap-1.5">
             <label for="password" class="text-[13px] font-medium text-on-light">رمز</label>
-            <input id="password" name="password" type="password" required autofocus autocomplete="current-password"
+            <input id="password" name="password" type="password" required autofocus="@(Model.ShowUsername ? null : "autofocus")" autocomplete="current-password"
                    aria-invalid="@(Model.Error is not null ? "true" : null)"
                    aria-describedby="@(Model.Error is not null ? "login-error" : null)"
                    class="min-h-11 rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors focus:border-brand"

@@ -21,8 +21,8 @@ public class LeadsModel : AdminPageModel
 {
     private readonly LeadStore _leads;
 
-    public LeadsModel(ContentStore store, AdminAuth auth, LeadStore leads)
-        : base(store, auth) => _leads = leads;
+    public LeadsModel(ContentStore store, AdminAuth auth, AdminUserStore users, LeadStore leads)
+        : base(store, auth, users) => _leads = leads;
 
     /// <summary>مقدار خام `?filter=` — عیناً نگه داشته می‌شود تا بعد از POST همان صفحه برگردد.</summary>
     public string? Filter { get; private set; }
