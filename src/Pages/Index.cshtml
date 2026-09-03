@@ -25,6 +25,6 @@
     @* داده‌ی سناریوهای دمو برای جاوااسکریپت. در نسخه‌ی قبلی این داده داخل
        باندل ری‌اکت بود؛ این‌جا سرور همان محتوای زنده را کنار صفحه می‌گذارد،
        پس ویرایش از پنل بلافاصله در دمو هم دیده می‌شود. *@
-    <script type="application/json" id="demo-data">@Html.Raw(Model.DemoJson)</script>
+    <script type="application/json" id="demo-data">@Html.Raw(Up2Ai.Services.JsonForScript.Escape(Model.DemoJson))</script>
     <script src="~/js/site.js" asp-append-version="true"></script>
 }
