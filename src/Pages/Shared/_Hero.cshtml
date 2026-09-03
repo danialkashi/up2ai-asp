@@ -12,9 +12,12 @@
     <div class="hero-dark pointer-events-none absolute inset-0" aria-hidden="true"><div class="absolute inset-0 bg-ink"></div><div class="absolute -top-48 right-[-12%] h-[620px] w-[620px] rounded-full blur-[140px]" style="background:radial-gradient(circle, rgba(99,102,241,0.26), transparent 68%)"></div><div class="absolute bottom-[-18%] left-[-18%] h-[640px] w-[640px] rounded-full blur-[140px]" style="background:radial-gradient(circle, rgba(168,85,247,0.20), transparent 68%)"></div></div>
     @* رنگ‌دادن ملایم به خودِ نوار گذار — بدون این، میانه‌ی محوشدن خاکستری کدر می‌شود. *@
     <div class="hero-seam pointer-events-none absolute inset-x-0 bottom-0" aria-hidden="true"></div>
-    @* padding پایین باید از طول نوار گذار بیشتر باشد وگرنه ردیف اعتماد داخل
-       ناحیه‌ی روشن‌شونده می‌افتد و کنتراستش می‌شکند. *@
-    <div class="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pb-48 pt-12 sm:px-6 sm:pb-64 sm:pt-16 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:pb-72 lg:pt-20">
+    @* padding پایین باید از طول نوار گذار (`--hero-fade`: ۷۲ / ۹۶ پیکسل)
+       بیشتر بماند، وگرنه ردیف اعتماد داخل ناحیه‌ی روشن‌شونده می‌افتد و
+       کنتراستش می‌شکند. مقدارهای قبلی (۱۹۲ / ۲۵۶ / ۲۸۸) برای نوارِ بلندِ
+       قبلی بود و حالا که نوار کوتاه شده فقط یک ناحیه‌ی خالیِ خاکستری
+       می‌ساخت؛ این‌ها کمترین مقدارِ امن بالای طول نوارند. *@
+    <div class="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pb-24 pt-12 sm:px-6 sm:pb-28 sm:pt-16 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:pb-32 lg:pt-20">
         @* ستون متن *@
         <div class="text-center lg:text-start">
             <div class="inline-flex" data-anim="rise" style="animation-delay:0ms"><span class="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3.5 py-1.5 text-[13px] font-medium text-on-dark/80 backdrop-blur-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-4 w-4 text-brand-soft"><path d="M12 3.2 13.7 8c.2.6.7 1.1 1.3 1.3l4.8 1.7-4.8 1.7c-.6.2-1.1.7-1.3 1.3L12 18.8 10.3 14c-.2-.6-.7-1.1-1.3-1.3L4.2 11l4.8-1.7c.6-.2 1.1-.7 1.3-1.3L12 3.2Z"></path></svg>@hero["badge"]</span></div>

@@ -9,10 +9,24 @@
     var site = c["site"];
     var copy = c["copy"];
     var url = site["url"].S;
-    var ogTitle = $"{site["name"]} — {site["tagline"]}";
+    // عنوانِ اشتراک‌گذاری = عنوانِ همان صفحه اگر داده شده باشد؛ وگرنه
+    // عنوانِ سراسریِ سایت. لینکِ یک نوشته در تلگرام باید عنوانِ خودِ نوشته را
+    // نشان بدهد، نه شعارِ سایت.
+    var ogTitle = ViewData["Title"] as string ?? $"{site["name"]} — {site["tagline"]}";
     var pageTitle = ViewData["Title"] as string ?? $"{site["name"]} — {copy["seo"]["titleSuffix"]}";
     var noIndex = ViewData["NoIndex"] as bool? ?? false;
     var keywords = string.Join(",", copy["seo"]["keywords"].Select(k => k.S));
+
+    // متادیتای مخصوصِ هر صفحه. تا وقتی سایت تک‌صفحه بود، توضیح و آدرسِ
+    // canonical برای همه یکی بود؛ با آمدنِ وبلاگ دیگر نیست — دو صفحه با یک
+    // توضیح و یک canonical یعنی گوگل یکی‌شان را نسخه‌ی تکراریِ دیگری
+    // می‌بیند. هر صفحه می‌تواند این‌ها را از ViewData بدهد و اگر نداد،
+    // همان مقدارهای سراسری می‌آید.
+    var description = ViewData["Description"] as string ?? site["description"].S;
+    var canonical = ViewData["Canonical"] as string ?? url;
+    var ogType = ViewData["OgType"] as string ?? "website";
+    var articlePublished = ViewData["ArticlePublished"] as string;
+    var articleModified = ViewData["ArticleModified"] as string;
 }<!DOCTYPE html>
 <html lang="fa" dir="rtl" class="h-full">
 <head>
@@ -32,29 +46,43 @@
     }
     else
     {
-        <meta name="description" content="@site["description"]" />
+        <meta name="description" content="@description" />
         <meta name="application-name" content="@site["name"]" />
         <meta name="keywords" content="@keywords" />
         <meta name="robots" content="index, follow" />
-        <link rel="canonical" href="@url" />
+        <link rel="canonical" href="@canonical" />
         <meta property="og:title" content="@ogTitle" />
-        <meta property="og:description" content="@site["description"]" />
+        <meta property="og:description" content="@description" />
         <meta property="og:site_name" content="@site["name"]" />
         <meta property="og:locale" content="fa_IR" />
         <meta property="og:image" content="@(url)/opengraph-image.png" />
         <meta property="og:image:type" content="image/png" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
-        <meta property="og:type" content="website" />
+        <meta property="og:url" content="@canonical" />
+        <meta property="og:type" content="@ogType" />
+        @if (articlePublished is not null)
+        {
+            <meta property="article:published_time" content="@articlePublished" />
+        }
+        @if (articleModified is not null)
+        {
+            <meta property="article:modified_time" content="@articleModified" />
+        }
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="@ogTitle" />
-        <meta name="twitter:description" content="@site["description"]" />
+        <meta name="twitter:description" content="@description" />
         <meta name="twitter:image" content="@(url)/opengraph-image.png" />
         <meta name="twitter:image:type" content="image/png" />
         <meta name="twitter:image:width" content="1200" />
         <meta name="twitter:image:height" content="630" />
     }
     <link rel="icon" href="~/icon.svg" sizes="any" type="image/svg+xml" />
+    @if (!noIndex)
+    {
+        @* فیدِ وبلاگ برای خواننده‌ها و ابزارهایی که خودشان دنبالش می‌گردند *@
+        <link rel="alternate" type="application/rss+xml" title="@copy["blog"]["heading"]" href="/blog/feed.xml" />
+    }
     @await RenderSectionAsync("Head", required: false)
 </head>
 <body class="flex min-h-full flex-col">

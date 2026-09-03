@@ -1,6 +1,7 @@
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using System.Text.Encodings.Web
+@using Up2Ai.Services
 @{
     // داده‌ی ساخت‌یافته (JSON-LD) برای موتورهای جست‌وجو.
     //
@@ -15,7 +16,10 @@
     //
     // `sameAs` فقط شبکه‌هایی را می‌آورد که واقعاً پر شده‌اند؛ لینک خالی به
     // گوگل داده نمی‌شود.
-    var c = (Cv)ViewData["Content"]!;
+    // کستِ سخت نه: این پارشال از صفحه‌ی خطا هم رندر می‌شود و آن‌جا ممکن است
+    // محتوایی در کار نباشد (یا اصلاً خطا از خودِ لود محتوا آمده باشد). با
+    // کستِ قبلی، صفحه‌ی خطا خودش می‌ترکید و کاربر یک ۵۰۰ی خالی می‌دید.
+    var c = ViewData["Content"] as Cv? ?? new Cv(null);
     var site = c["site"];
     var contact = c["contact"];
     var url = site["url"].S;
@@ -42,15 +46,25 @@
     if (sameAs.Count > 0) org["sameAs"] = sameAs;
     if (contact["email"].HasText) org["email"] = contact["email"].S;
 
+    // FAQPage فقط روی صفحه‌ای مجاز است که همان پرسش‌وپاسخ‌ها را نشان
+    // می‌دهد. تا وقتی سایت تک‌صفحه بود این همیشه درست بود؛ حالا که صفحه‌های
+    // وبلاگ هم همین پارشال را رندر می‌کنند، باید صریح بررسی شود — وگرنه هر
+    // نوشته‌ی وبلاگ ادعا می‌کرد سؤالات متداول دارد، که هم غلط است و هم در
+    // Search Console خطای «محتوای ساخت‌یافته روی صفحه دیده نمی‌شود» می‌دهد.
+    var isHome = SiteLinks.IsHome(Context.Request.Path.Value);
+
     var mainEntity = new JsonArray();
-    foreach (var f in c["faq"]["faqs"])
+    if (isHome)
     {
-        mainEntity.Add(new JsonObject
+        foreach (var f in c["faq"]["faqs"])
         {
-            ["@type"] = "Question",
-            ["name"] = f["q"].S,
-            ["acceptedAnswer"] = new JsonObject { ["@type"] = "Answer", ["text"] = f["a"].S },
-        });
+            mainEntity.Add(new JsonObject
+            {
+                ["@type"] = "Question",
+                ["name"] = f["q"].S,
+                ["acceptedAnswer"] = new JsonObject { ["@type"] = "Answer", ["text"] = f["a"].S },
+            });
+        }
     }
 
     var graph = new JsonArray
@@ -65,13 +79,17 @@
             ["inLanguage"] = "fa-IR",
             ["publisher"] = new JsonObject { ["@id"] = $"{url}/#organization" },
         },
-        new JsonObject
+    };
+
+    if (mainEntity.Count > 0)
+    {
+        graph.Add(new JsonObject
         {
             ["@type"] = "FAQPage",
             ["@id"] = $"{url}/#faq",
             ["mainEntity"] = mainEntity,
-        },
-    };
+        });
+    }
 
     var payload = new JsonObject
     {
@@ -85,4 +103,4 @@
         TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver(),
     });
 }
-<script type="application/ld+json">@Html.Raw(payload)</script>
+<script type="application/ld+json">@Html.Raw(JsonForScript.Escape(payload))</script>

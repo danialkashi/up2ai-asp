@@ -1,4 +1,5 @@
 @model Up2Ai.Pages.IndexModel
+@using Up2Ai.Services
 @{
     var c = (Cv)ViewData["Content"]!;
     var cc = c["copy"]["contact"];
@@ -22,10 +23,12 @@
     Model.FieldErrors.TryGetValue("reach", out var eReach);
     Model.FieldErrors.TryGetValue("business", out var eBusiness);
     Model.FieldErrors.TryGetValue("need", out var eNeed);
+    Model.FieldErrors.TryGetValue("captcha", out var eCaptcha);
 
     // معادل سمت سرورِ فوکوسِ ری‌اکت روی اولین فیلد ایراددار: چون بعد از POST
     // صفحه از نو بارگذاری می‌شود، تنها راهِ بدون‌جاوااسکریپت `autofocus` است.
-    var focus = eName != null ? "name" : eReach != null ? "reach" : eNeed != null ? "need" : null;
+    var focus = eName != null ? "name" : eReach != null ? "reach" : eNeed != null ? "need"
+        : eCaptcha != null ? "captcha" : null;
 
     // همان کلاس‌های `Field` در نسخه‌ی ری‌اکت، با همان ترتیب.
     Func<bool, bool, string> fieldCls = (hasError, isTextarea) => string.Join(" ", new[]
@@ -160,6 +163,36 @@
                                     <p id="need-error" class="text-[13px] text-red-700">@eNeed</p>
                                 }
                             </div>
+                            @* ---------- کپچا ----------
+                               پرسش به‌صورت تصویر (SVG درون‌خطی) می‌آید تا در متنِ
+                               HTML عددی برای خواندن نباشد. برای صفحه‌خوان‌ها همان
+                               پرسش در aria-label تصویر هست، وگرنه فرم برای کاربرِ
+                               نابینا غیرقابل ارسال می‌شد. *@
+                            <div class="flex flex-col gap-2">
+                                <label for="@FormGuard.AnswerField" class="text-[14px] font-medium text-on-light">@cc["captchaLabel"]</label>
+                                <div class="flex items-center gap-3">
+                                    <span id="captcha-image" class="shrink-0 select-none" role="img" aria-label="@cc["captchaAria"].S.Replace("{0}", Model.Captcha.Question)">@Html.Raw(CaptchaSvg.Render(Model.Captcha.Question))</span>
+                                    <input id="@FormGuard.AnswerField" name="@FormGuard.AnswerField" type="text" inputmode="numeric" autocomplete="off"
+                                           aria-invalid="@(eCaptcha != null ? "true" : null)" aria-describedby="@describedBy("captcha", false, eCaptcha)"
+                                           class="@fieldCls(eCaptcha != null, false)" value="" autofocus="@(focus == "captcha" ? "autofocus" : null)" />
+                                </div>
+                                @if (eCaptcha != null)
+                                {
+                                    <p id="captcha-error" class="text-[13px] text-red-700">@eCaptcha</p>
+                                }
+                            </div>
+                        </div>
+
+                        @* توکنِ امضاشده‌ی کپچا و مهرِ زمانِ باز شدن فرم. *@
+                        <input type="hidden" name="@FormGuard.TokenField" value="@Model.Captcha.Token" />
+                        <input type="hidden" name="@FormGuard.StartedField" value="@Model.FormStamp" />
+
+                        @* فیلدِ تله: کاربر نه می‌بیندش نه با Tab به آن می‌رسد؛
+                           ربات‌های فرم‌پرکن معمولاً پرش می‌کنند. `hidden` ساده
+                           استفاده نشده چون بعضی ربات‌ها همان را نشانه می‌گیرند. *@
+                        <div aria-hidden="true" class="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+                            <label for="@FormGuard.HoneypotField">وب‌سایت (خالی بماند)</label>
+                            <input id="@FormGuard.HoneypotField" name="@FormGuard.HoneypotField" type="text" tabindex="-1" autocomplete="off" value="" />
                         </div>
 
                         <button type="submit" class="group mt-7 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-6 py-3.5 text-[15px] font-medium text-white shadow-[0_10px_30px_-10px_rgba(99,102,241,0.7)] transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-70">@cc["submit"]<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] transition-transform duration-200 group-hover:-translate-x-1"><path d="M19 12H5"></path><path d="m11 6-6 6 6 6"></path></svg></button>

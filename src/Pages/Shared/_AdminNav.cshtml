@@ -8,13 +8,13 @@
     // و اسکرول افقیِ خودِ ردیف. اسم‌های کوتاه (AdminLabels.Short) هم برای
     // همین است که در عرض معمول اصلاً نیازی به اسکرول نشود.
     //
-    // بین گروه‌ها یک خط جداکننده هست تا سه دسته‌ی «پایه / بخش‌های صفحه /
-    // متن‌ها» بدون اشغال فضای اضافه از هم تفکیک شوند.
+    // بین گروه‌ها یک خط جداکننده هست تا دسته‌های «پایه / بخش‌های صفحه /
+    // متن‌ها / مدیریت» بدون اشغال فضای اضافه از هم تفکیک شوند.
 }
 
 @functions {
     string TabClass(bool on) =>
-        "inline-flex min-h-11 shrink-0 items-center whitespace-nowrap border-b-2 px-3 text-[13.5px] font-medium transition-colors "
+        "inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-[13.5px] font-medium transition-colors "
         + (on
             ? "border-brand text-brand-ink"
             : "border-transparent text-on-light-muted hover:text-on-light");
@@ -41,8 +41,26 @@
         }
     }
 
+    @* صفحه‌های ثابتِ پنل — این‌ها کلیدِ محتوایی ندارند، پس از فهرست بالا
+       نمی‌آیند و دستی این‌جا نوشته شده‌اند. *@
     <li aria-hidden="true" class="flex shrink-0 items-center px-1.5"><span class="h-4 w-px bg-hairline"></span></li>
     <li class="shrink-0">
-        <a href="/admin/leads" aria-current="@(Model.OnLeads ? "page" : null)" class="@TabClass(Model.OnLeads)">صندوق لید</a>
+        <a href="/admin/leads" aria-current="@(Model.ActiveExtra == "leads" ? "page" : null)" class="@TabClass(Model.ActiveExtra == "leads")">صندوق لید</a>
+    </li>
+    <li class="shrink-0">
+        <a href="/admin/posts" aria-current="@(Model.ActiveExtra == "posts" ? "page" : null)" class="@TabClass(Model.ActiveExtra == "posts")">وبلاگ</a>
+    </li>
+    <li class="shrink-0">
+        <a href="/admin/comments" aria-current="@(Model.ActiveExtra == "comments" ? "page" : null)" class="@TabClass(Model.ActiveExtra == "comments")">
+            نظرها
+            @if (Model.PendingComments > 0)
+            {
+                @* نشانِ عددی: تنها جایی از پنل که خودش خبر می‌دهد کاری مانده. *@
+                <span class="grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-[11px] font-bold text-white" title="@PersianYear.ToPersianDigits(Model.PendingComments.ToString()) نظر منتظر تأیید">@PersianYear.ToPersianDigits(Model.PendingComments.ToString())</span>
+            }
+        </a>
+    </li>
+    <li class="shrink-0">
+        <a href="/admin/users" aria-current="@(Model.ActiveExtra == "users" ? "page" : null)" class="@TabClass(Model.ActiveExtra == "users")">کاربران</a>
     </li>
 </ul>

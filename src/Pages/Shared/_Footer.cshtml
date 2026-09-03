@@ -19,7 +19,9 @@
     var contact = c["contact"];
     var f = c["copy"]["footer"];
 
-    var ctaHref = site["cta"]["href"].S;
+    // مثل هدر: لنگرها بیرون از صفحه‌ی اصلی باید اول به خانه برگردند.
+    var here = Context.Request.Path.Value;
+    var ctaHref = SiteLinks.Resolve(site["cta"]["href"].S, here);
     var igLabel = f["social"]["instagram"].S;
     var tgLabel = f["social"]["telegram"].S;
     var waLabel = f["social"]["whatsapp"].S;
@@ -34,8 +36,14 @@
                     || contact["whatsapp"].HasText;
 
     // معادل fill() از src/lib/copy.ts — فقط همان دو جای‌گیرِ این متن.
+    //
+    // سال دیگر از محتوا خوانده نمی‌شود، از تاریخِ همین لحظه حساب می‌شود:
+    // قبلاً «۱۴۰۴» یک رشته‌ی ثابت در defaults.json بود و سرِ تحویل سال باید
+    // یادت می‌ماند دستی عوضش کنی، وگرنه پاورقی سالِ گذشته را نشان می‌داد.
+    // تقویم هجری شمسی است (PersianCalendar خودِ .NET) و رقم‌ها هم فارسی
+    // چاپ می‌شوند تا با بقیه‌ی متنِ صفحه یکدست بماند.
     var copyright = f["copyright"].S
-        .Replace("{year}", f["year"].S)
+        .Replace("{year}", PersianYear.Now())
         .Replace("{name}", site["name"].S);
 }<footer class="bg-ink">
     <div class="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
@@ -81,7 +89,7 @@
                 <ul class="mt-4 flex flex-col gap-1">
                     @foreach (var item in nav)
                     {
-                        <li><a href="@item["href"]" class="-mx-2 inline-flex min-h-11 items-center rounded-lg px-2 text-[14px] text-on-dark-muted transition-colors hover:text-white">@item["label"]</a></li>
+                        <li><a href="@SiteLinks.Resolve(item["href"].S, here)" class="-mx-2 inline-flex min-h-11 items-center rounded-lg px-2 text-[14px] text-on-dark-muted transition-colors hover:text-white">@item["label"]</a></li>
                     }
                 </ul>
             </nav>
@@ -99,19 +107,14 @@
             </div>
         </div>
 
-        @* نمادهای اعتماد + کپی‌رایت *@
-        <div class="mt-12 flex flex-col gap-6 border-t border-white/10 pt-8 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-[13px] text-on-dark-muted">@copyright</p>
+        @* کپی‌رایت.
 
-            <ul class="flex items-center gap-3" aria-label="@f["badgesAria"]">
-                @foreach (var badge in f["badges"])
-                {
-                    // محتوای li عمداً بدون فاصله نوشته شده: این li یک گرید است
-                    // و متن و br داخلش آیتم‌های ناشناسِ گرید می‌سازند.
-                    var badgeTitle = f["badgeTitle"].S.Replace("{badge}", badge.S);
-                    <li class="grid h-[72px] w-[72px] place-items-center rounded-xl border border-dashed border-white/15 px-2 text-center text-[12px] leading-[1.6] text-on-dark-muted" title="@badgeTitle">@f["badgePlaceholder"]<br/>@badge</li>
-                }
-            </ul>
+           جای‌خالیِ نمادهای اینماد و ساماندهی از این‌جا برداشته شد: سایت
+           فروش و پرداخت آنلاین ندارد، پس اینماد موضوعیت ندارد، و آن دو کادرِ
+           خط‌چینِ خالی فقط فضای پاورقی را می‌گرفتند بدون این‌که چیزی بگویند.
+           نماد که گرفته شد، همین‌جا کنار کپی‌رایت جای کافی برایش هست. *@
+        <div class="mt-12 border-t border-white/10 pt-8">
+            <p class="text-[13px] text-on-dark-muted">@copyright</p>
         </div>
     </div>
 </footer>

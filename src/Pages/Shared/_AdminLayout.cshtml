@@ -1,6 +1,7 @@
 @using System.Text.Json.Nodes
 @using Up2Ai.Services
 @inject Up2Ai.Services.ContentStore Store
+@inject Up2Ai.Services.BlogStore Blog
 @{
     // پوسته‌ی پنل مدیریت.
     //
@@ -21,6 +22,20 @@
     var available = Store.Defaults is JsonObject defs ? defs.Select(p => p.Key).ToList() : new List<string>();
     var path = (Context.Request.Path.Value ?? "").TrimEnd('/').ToLowerInvariant();
     var activeTab = ViewData["ActiveTab"] as string ?? "";
+
+    // کدام صفحه‌ی ثابتِ پنل باز است. از روی مسیر حساب می‌شود تا هر صفحه‌ی
+    // تازه لازم نباشد چیزی در ViewData بگذارد و یادش برود.
+    var activeExtra =
+        path.StartsWith("/admin/leads") ? "leads"
+        : path.StartsWith("/admin/posts") ? "posts"
+        : path.StartsWith("/admin/comments") ? "comments"
+        : path.StartsWith("/admin/users") ? "users"
+        : "";
+
+    // شمارشِ نظرهای منتظر تأیید فقط برای کاربرِ واردشده معنی دارد (و فقط
+    // همان‌جا نوار اصلاً رندر می‌شود)، پس بیرون از این شرط خوانده نمی‌شود.
+    var pendingComments = authed ? Blog.PendingCount() : 0;
+    var userLabel = ViewData["UserLabel"] as string ?? "";
 }
 
 <div class="min-h-screen bg-surface">
@@ -37,6 +52,13 @@
                 </a>
                 @if (authed)
                 {
+                    @* با چند کاربره شدنِ پنل، باید معلوم باشد الان چه کسی
+                       وارد است — وگرنه روی یک کامپیوترِ مشترک هیچ راهی برای
+                       فهمیدنش نبود. *@
+                    @if (userLabel.Length > 0)
+                    {
+                        <span class="hidden text-[13px] text-on-dark-muted sm:inline">@userLabel</span>
+                    }
                     <form method="post" asp-page="/Admin/Login" asp-page-handler="Logout">
                         <button type="submit" class="inline-flex min-h-11 items-center rounded-lg border border-white/12 px-3 text-[13px] text-on-dark transition-colors hover:bg-white/10">خروج</button>
                     </form>
@@ -49,7 +71,7 @@
     {
         <nav aria-label="بخش‌های پنل" class="sticky top-0 z-40 border-b border-hairline bg-card">
             <div class="relative mx-auto max-w-5xl px-4 sm:px-6">
-                <partial name="_AdminNav" model="@(new AdminNavModel(available, activeTab, path == "/admin", path.StartsWith("/admin/leads")))" />
+                <partial name="_AdminNav" model="@(new AdminNavModel(available, activeTab, path == "/admin", activeExtra, pendingComments))" />
                 @* محو‌شدگی لبه‌ی چپ: در عرض‌های کم که نوار اسکرول می‌شود، نشان
                    می‌دهد ادامه دارد. جایی که اسکرول لازم نیست، روی زمینه‌ی
                    خالی می‌افتد و دیده نمی‌شود. *@
