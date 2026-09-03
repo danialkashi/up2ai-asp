@@ -125,6 +125,15 @@
                     <select id="@id" name="@("f:" + path)"
                             aria-describedby="@(hint.Length > 0 ? id + "-hint" : null)"
                             class="@InputClass(changed, false)">
+                        @* مقدارِ فعلی اگر در فهرست نبود (مثلاً از نسخه‌ی
+                           قبلی یا ویرایش دستی فایل محتوا)، خودش هم گزینه
+                           می‌شود. بدون این، select گزینه‌ی اول را انتخاب
+                           نشان می‌داد و اولین ذخیره‌ی همان صفحه بی‌آنکه کسی
+                           بخواهد مقدار را عوض می‌کرد. *@
+                        @if (sval.Length > 0 && !options.ContainsKey(sval))
+                        {
+                            <option value="@sval" selected="selected">@sval (مقدار فعلی)</option>
+                        }
                         @foreach (var opt in options)
                         {
                             <option value="@opt.Key" selected="@(opt.Key == sval)">@opt.Value</option>
@@ -306,6 +315,17 @@
                         </span>
                     </summary>
                     <div class="border-t border-hairline px-4 py-4">
+                        @* لینکِ «دیدن روی سایت» برای ناحیه‌هایی که جای مشخصی
+                           روی سایت دارند. تا حالا فقط بخش‌های سطح‌بالا این را
+                           داشتند و برای ناحیه‌های داخلِ «متن‌ها» باید حدس
+                           می‌زدی کجا را عوض کرده‌ای. مقصدهایی مثل «/blog»
+                           صفحه‌ی جدا هستند، پس اسلشِ دوباره نمی‌گیرند. *@
+                        @if (area is not null && area.Anchor.Length > 0)
+                        {
+                            var areaHref = area.Anchor.StartsWith("/") ? area.Anchor : "/" + area.Anchor;
+                            <a href="@areaHref" target="_blank" rel="noopener"
+                               class="mb-3 inline-flex min-h-11 items-center gap-1.5 text-[12.5px] font-medium text-brand-ink hover:underline">دیدن روی سایت ↗</a>
+                        }
                         @if (note.Length > 0)
                         {
                             <p class="mb-4 text-[12.5px] leading-[1.9] text-on-light-muted">@note</p>
