@@ -1,0 +1,209 @@
+@page "/blog/{slug}"
+@model Up2Ai.Pages.Blog.BlogPostModel
+@using Up2Ai.Services
+@{
+    var c = Model.C;
+    var b = c["copy"]["blog"];
+    var site = c["site"];
+    var post = Model.Post;
+    var baseUrl = site["url"].S.TrimEnd('/');
+    var postUrl = $"{baseUrl}/blog/{Uri.EscapeDataString(post.Slug)}";
+
+    Layout = "_Layout";
+    ViewData["Title"] = $"{post.Title} — {site["name"]}";
+    // توضیحِ متا از خلاصه می‌آید و اگر خلاصه خالی بود از خودِ متن ساخته
+    // می‌شود — صفحه‌ی بدون description در نتیجه‌ی گوگل، متنِ تصادفی نشان
+    // می‌دهد.
+    ViewData["Description"] = post.Excerpt.Length > 0
+        ? post.Excerpt
+        : MiniMarkdown.ToPlainText(post.Body, 160);
+    ViewData["Canonical"] = postUrl;
+    ViewData["OgType"] = "article";
+    ViewData["ArticlePublished"] = post.PublishedAt;
+    ViewData["ArticleModified"] = post.UpdatedAt;
+
+    Model.FieldErrors.TryGetValue("name", out var eName);
+    Model.FieldErrors.TryGetValue("body", out var eBody);
+    Model.FieldErrors.TryGetValue("captcha", out var eCaptcha);
+
+    Func<bool, bool, string> fieldCls = (hasError, isTextarea) => string.Join(" ", new[]
+    {
+        "w-full rounded-xl border bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors placeholder:text-on-light-muted",
+        hasError ? "border-red-400 focus:border-red-500" : "border-hairline focus:border-brand",
+        isTextarea ? "min-h-28 resize-y leading-[1.9]" : "min-h-11",
+    });
+}
+
+@section Head {
+    @* داده‌ی ساخت‌یافته‌ی خودِ نوشته. بدون این، گوگل صفحه را یک صفحه‌ی
+       معمولی می‌بیند؛ با این، تاریخ و عنوان و نویسنده را می‌شناسد. *@
+    <script type="application/ld+json">@Html.Raw(Model.ArticleJsonLd(baseUrl, postUrl))</script>
+}
+
+<partial name="_Header" />
+
+<main id="main" class="flex-1">
+    <article>
+        <header class="relative -mt-[var(--header-h)] overflow-hidden bg-ink pt-[var(--header-h)]">
+            <div aria-hidden="true" class="pointer-events-none absolute -top-40 right-[-10%] h-[520px] w-[520px] rounded-full blur-[140px]" style="background:radial-gradient(circle, rgba(99,102,241,0.24), transparent 68%)"></div>
+            <div class="relative mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
+                @* مسیر راهنما — هم برای کاربر و هم برای گوگل *@
+                <nav aria-label="مسیر" class="text-[13px] text-on-dark-muted">
+                    <a href="/blog" class="transition-colors hover:text-white">@b["heading"]</a>
+                </nav>
+                <h1 class="mt-4 text-[1.8rem] font-bold leading-[1.5] tracking-tight text-white sm:text-[2.25rem]">@post.Title</h1>
+                <div class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-on-dark-muted">
+                    <time datetime="@post.PublishedAt">@PersianYear.FormatDate(post.PublishedAt)</time>
+                    <span aria-hidden="true">•</span>
+                    <span>@b["readingTime"].S.Replace("{n}", PersianYear.ToPersianDigits(post.ReadingMinutes().ToString()))</span>
+                </div>
+                @if (post.Tags.Count > 0)
+                {
+                    <ul class="mt-5 flex flex-wrap gap-1.5">
+                        @foreach (var tag in post.Tags)
+                        {
+                            <li class="rounded-md border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[12px] text-on-dark-muted">@tag</li>
+                        }
+                    </ul>
+                }
+            </div>
+        </header>
+
+        <div class="surface-landing border-b border-hairline bg-surface">
+            <div class="mx-auto max-w-3xl px-4 py-14 sm:px-6 sm:py-16">
+                @if (post.Excerpt.Length > 0)
+                {
+                    <p class="border-s-4 border-brand/40 ps-5 text-[16px] leading-[2.1] font-medium text-on-light">@post.Excerpt</p>
+                }
+
+                @* متنِ نوشته: خروجیِ MiniMarkdown که خودش ورودی را اسکیپ کرده. *@
+                <div class="mt-2">@Html.Raw(Model.BodyHtml)</div>
+
+                @if (post.UpdatedAt.Length > 0 && post.UpdatedAt != post.PublishedAt)
+                {
+                    <p class="mt-10 text-[12.5px] text-on-light-muted">@b["updatedOn"].S.Replace("{date}", PersianYear.FormatDate(post.UpdatedAt))</p>
+                }
+
+                <p class="mt-10 border-t border-hairline pt-8">
+                    <a href="/blog" class="inline-flex min-h-11 items-center gap-1.5 text-[14px] font-medium text-brand-ink transition-colors hover:text-brand">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-4 w-4"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+                        @b["backToList"]
+                    </a>
+                </p>
+            </div>
+        </div>
+    </article>
+
+    @* ---------------------------- نظرها ---------------------------- *@
+    <section id="comments" class="border-b border-hairline bg-surface-2">
+        <div class="mx-auto max-w-3xl px-4 py-14 sm:px-6 sm:py-16">
+            <h2 class="text-[1.35rem] font-bold text-on-light">@b["commentsHeading"]</h2>
+
+            @if (Model.JustSubmitted)
+            {
+                <p role="status" class="mt-5 rounded-xl border border-brand/25 bg-brand/[0.05] px-4 py-3 text-[14px] leading-[1.95] text-on-light">@b["commentPending"]</p>
+            }
+
+            @if (Model.Comments.Count == 0)
+            {
+                <p class="mt-5 text-[14px] leading-[1.95] text-on-light-muted">@b["commentsEmpty"]</p>
+            }
+            else
+            {
+                <ul class="mt-6 flex flex-col gap-4">
+                    @foreach (var comment in Model.Comments)
+                    {
+                        <li class="rounded-2xl border border-hairline bg-card p-5">
+                            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                                <span class="text-[14px] font-bold text-on-light">@comment.Name</span>
+                                <time datetime="@comment.At" class="text-[12.5px] text-on-light-muted">@PersianYear.FormatDate(comment.At)</time>
+                            </div>
+                            @* متنِ نظر را بازدیدکننده نوشته: هیچ HTMLای تفسیر
+                               نمی‌شود، فقط خطوطش حفظ می‌شود. *@
+                            <p class="mt-2.5 whitespace-pre-line text-[14px] leading-[2] text-on-light">@comment.Body</p>
+                        </li>
+                    }
+                </ul>
+            }
+
+            @if (!post.CommentsOpen)
+            {
+                <p class="mt-8 rounded-xl border border-dashed border-hairline bg-card px-4 py-3 text-[13.5px] text-on-light-muted">@b["commentsClosed"]</p>
+            }
+            else
+            {
+                <form method="post" novalidate class="mt-8 rounded-2xl border border-hairline bg-card p-6 sm:p-7">
+                    <h3 class="text-[16px] font-bold text-on-light">@b["commentFormHeading"]</h3>
+
+                    <div class="mt-5 flex flex-col gap-5">
+                        <div class="flex flex-col gap-2">
+                            <label for="comment-name" class="text-[14px] font-medium text-on-light">@b["commentNameLabel"]</label>
+                            <input id="comment-name" name="CommentName" type="text" autocomplete="name"
+                                   aria-invalid="@(eName != null ? "true" : null)" aria-describedby="@(eName != null ? "comment-name-error" : null)"
+                                   class="@fieldCls(eName != null, false)" value="@(Model.CommentName.Length > 0 ? Model.CommentName : null)" />
+                            @if (eName != null)
+                            {
+                                <p id="comment-name-error" class="text-[13px] text-red-700">@eName</p>
+                            }
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <label for="comment-body" class="text-[14px] font-medium text-on-light">@b["commentBodyLabel"]<span id="comment-body-hint" class="ms-2 font-normal text-on-light-muted">— @b["commentBodyHint"]</span></label>
+                            <textarea id="comment-body" name="CommentBody" rows="4"
+                                      aria-invalid="@(eBody != null ? "true" : null)" aria-describedby="@(eBody != null ? "comment-body-hint comment-body-error" : "comment-body-hint")"
+                                      class="@fieldCls(eBody != null, true)">@Model.CommentBody</textarea>
+                            @if (eBody != null)
+                            {
+                                <p id="comment-body-error" class="text-[13px] text-red-700">@eBody</p>
+                            }
+                        </div>
+
+                        @* کپچا — همان الگوی فرم مشاوره: پرسش به‌صورت تصویر، و
+                           همان پرسش در aria-label برای صفحه‌خوان. *@
+                        <div class="flex flex-col gap-2">
+                            <label for="@FormGuard.AnswerField" class="text-[14px] font-medium text-on-light">@c["copy"]["contact"]["captchaLabel"]</label>
+                            <div class="flex items-center gap-3">
+                                <span class="shrink-0 select-none" role="img" aria-label="@c["copy"]["contact"]["captchaAria"].S.Replace("{0}", Model.Captcha.Question)">@Html.Raw(CaptchaSvg.Render(Model.Captcha.Question))</span>
+                                <input id="@FormGuard.AnswerField" name="@FormGuard.AnswerField" type="text" inputmode="numeric" autocomplete="off"
+                                       aria-invalid="@(eCaptcha != null ? "true" : null)" aria-describedby="@(eCaptcha != null ? "comment-captcha-error" : null)"
+                                       class="@fieldCls(eCaptcha != null, false)" value="" />
+                            </div>
+                            @if (eCaptcha != null)
+                            {
+                                <p id="comment-captcha-error" class="text-[13px] text-red-700">@eCaptcha</p>
+                            }
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="@FormGuard.TokenField" value="@Model.Captcha.Token" />
+                    <input type="hidden" name="@FormGuard.StartedField" value="@Model.FormStamp" />
+
+                    @* فیلدِ تله — نه دیده می‌شود نه با Tab به آن می‌رسی. *@
+                    <div aria-hidden="true" class="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+                        <label for="@FormGuard.HoneypotField">وب‌سایت (خالی بماند)</label>
+                        <input id="@FormGuard.HoneypotField" name="@FormGuard.HoneypotField" type="text" tabindex="-1" autocomplete="off" value="" />
+                    </div>
+
+                    <button type="submit" class="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-6 py-3 text-[15px] font-medium text-white shadow-[0_10px_30px_-10px_rgba(99,102,241,0.7)] transition-transform duration-200 hover:-translate-y-0.5">@b["commentSubmit"]</button>
+
+                    @if (Model.FormError != null)
+                    {
+                        <p role="alert" class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] leading-[1.9] text-red-800">@Model.FormError</p>
+                    }
+
+                    <p class="mt-4 text-[12.5px] leading-[1.9] text-on-light-muted">@b["commentPolicy"]</p>
+                </form>
+            }
+        </div>
+    </section>
+</main>
+
+<partial name="_Footer" />
+
+@section Scripts {
+    @* همان اسکریپت صفحه‌ی اصلی. بدون این، دکمه‌ی همبرگری در صفحه‌های وبلاگ
+       هیچ کاری نمی‌کرد و پس‌زمینه‌ی هدر هم هنگام اسکرول عوض نمی‌شد — چون
+       اسکریپت فقط در صفحه‌ی اصلی بارگذاری می‌شد. بخش دموی همان فایل خودش را
+       با نبودنِ `#demo` خاموش می‌کند، پس چیزی اضافه اجرا نمی‌شود. *@
+    <script src="~/js/site.js" asp-append-version="true"></script>
+}

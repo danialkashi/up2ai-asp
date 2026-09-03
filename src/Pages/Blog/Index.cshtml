@@ -1,0 +1,118 @@
+@page "/blog"
+@model Up2Ai.Pages.Blog.BlogIndexModel
+@using Up2Ai.Services
+@{
+    // فهرست نوشته‌ها.
+    //
+    // چیدمان عمداً همان زبانِ بصریِ بقیه‌ی سایت است: نوارِ تیره‌ی بالای صفحه
+    // (مثل هیرو) و بعد کارت‌های روشن. کاربری که از صفحه‌ی اصلی به این‌جا
+    // می‌آید نباید حس کند وارد سایت دیگری شده.
+    var c = Model.C;
+    var b = c["copy"]["blog"];
+    var site = c["site"];
+    Layout = "_Layout";
+    ViewData["Title"] = $"{b["heading"]} — {site["name"]}";
+    ViewData["Description"] = b["lead"].S;
+    // صفحه‌های دوم به بعد نباید در گوگل با هم رقابت کنند؛ فقط صفحه‌ی اول
+    // canonical می‌گیرد و بقیه به خودشان.
+    ViewData["Canonical"] = Model.PageNumber == 1
+        ? $"{site["url"].S.TrimEnd('/')}/blog"
+        : $"{site["url"].S.TrimEnd('/')}/blog?page={Model.PageNumber}";
+}
+
+<partial name="_Header" />
+
+<main id="main" class="flex-1">
+    @* سربرگ تیره — ادامه‌ی همان نوارِ هدر، تا لبه‌ی بالای صفحه یکدست بماند *@
+    <section class="relative -mt-[var(--header-h)] overflow-hidden bg-ink pt-[var(--header-h)]">
+        <div aria-hidden="true" class="pointer-events-none absolute -top-40 right-[-10%] h-[520px] w-[520px] rounded-full blur-[140px]" style="background:radial-gradient(circle, rgba(99,102,241,0.24), transparent 68%)"></div>
+        <div class="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+            <span class="inline-flex items-center rounded-full border border-white/12 bg-white/[0.04] px-3.5 py-1.5 text-[13px] font-medium text-on-dark/80">@b["eyebrow"]</span>
+            <h1 class="mt-5 text-[2rem] font-bold leading-[1.35] tracking-tight text-white sm:text-[2.5rem]">@b["heading"]</h1>
+            <p class="mt-4 max-w-2xl text-[15px] leading-[2] text-on-dark-muted sm:text-[16px]">@b["lead"]</p>
+        </div>
+    </section>
+
+    <section class="surface-landing border-b border-hairline bg-surface">
+        <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+            @if (Model.Posts.Count == 0)
+            {
+                <p class="rounded-2xl border border-dashed border-hairline bg-card px-6 py-10 text-center text-[15px] leading-[2] text-on-light-muted">@b["empty"]</p>
+            }
+            else
+            {
+                <ul class="grid gap-5 sm:grid-cols-2">
+                    @foreach (var post in Model.Posts)
+                    {
+                        var count = Model.CommentCounts.GetValueOrDefault(post.Id);
+                        <li>
+                            @* کلِ کارت یک لینک است تا روی موبایل هدفِ لمسِ بزرگی داشته باشد *@
+                            <a href="/blog/@Uri.EscapeDataString(post.Slug)" class="flex h-full flex-col rounded-2xl border border-hairline bg-card p-6 transition-colors hover:border-brand/35">
+                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-on-light-muted">
+                                    <time datetime="@post.PublishedAt">@PersianYear.FormatDate(post.PublishedAt)</time>
+                                    <span aria-hidden="true">•</span>
+                                    <span>@b["readingTime"].S.Replace("{n}", PersianYear.ToPersianDigits(post.ReadingMinutes().ToString()))</span>
+                                    @if (count > 0)
+                                    {
+                                        <span aria-hidden="true">•</span>
+                                        <span>@b["commentsCount"].S.Replace("{n}", PersianYear.ToPersianDigits(count.ToString()))</span>
+                                    }
+                                </div>
+                                <h2 class="mt-3 text-[18px] font-bold leading-[1.7] text-on-light">@post.Title</h2>
+                                <p class="mt-2.5 text-[14px] leading-[1.95] text-on-light-muted">@(post.Excerpt.Length > 0 ? post.Excerpt : MiniMarkdown.ToPlainText(post.Body, 160))</p>
+                                @if (post.Tags.Count > 0)
+                                {
+                                    <ul class="mt-4 flex flex-wrap gap-1.5">
+                                        @foreach (var tag in post.Tags)
+                                        {
+                                            <li class="rounded-md bg-surface-2 px-2 py-0.5 text-[12px] text-on-light-muted">@tag</li>
+                                        }
+                                    </ul>
+                                }
+                                <span class="mt-5 inline-flex items-center gap-1.5 text-[13.5px] font-medium text-brand-ink">
+                                    @b["readMore"]
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-4 w-4"><path d="M19 12H5"></path><path d="m11 6-6 6 6 6"></path></svg>
+                                </span>
+                            </a>
+                        </li>
+                    }
+                </ul>
+
+                @if (Model.TotalPages > 1)
+                {
+                    @* صفحه‌بندی: فقط قبلی/بعدی. برای وبلاگی با چند ده نوشته،
+                       نوارِ شماره‌ها فضای بیشتری می‌گیرد تا ارزش بدهد. *@
+                    <nav class="mt-10 flex items-center justify-between gap-3" aria-label="صفحه‌بندی نوشته‌ها">
+                        @if (Model.PageNumber > 1)
+                        {
+                            <a href="/blog?page=@(Model.PageNumber - 1)" rel="prev" class="inline-flex min-h-11 items-center rounded-xl border border-hairline bg-card px-4 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35">نوشته‌های تازه‌تر</a>
+                        }
+                        else
+                        {
+                            <span></span>
+                        }
+                        <span class="text-[13px] text-on-light-muted">صفحه‌ی @PersianYear.ToPersianDigits(Model.PageNumber.ToString()) از @PersianYear.ToPersianDigits(Model.TotalPages.ToString())</span>
+                        @if (Model.PageNumber < Model.TotalPages)
+                        {
+                            <a href="/blog?page=@(Model.PageNumber + 1)" rel="next" class="inline-flex min-h-11 items-center rounded-xl border border-hairline bg-card px-4 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35">نوشته‌های قدیمی‌تر</a>
+                        }
+                        else
+                        {
+                            <span></span>
+                        }
+                    </nav>
+                }
+            }
+        </div>
+    </section>
+</main>
+
+<partial name="_Footer" />
+
+@section Scripts {
+    @* همان اسکریپت صفحه‌ی اصلی. بدون این، دکمه‌ی همبرگری در صفحه‌های وبلاگ
+       هیچ کاری نمی‌کرد و پس‌زمینه‌ی هدر هم هنگام اسکرول عوض نمی‌شد — چون
+       اسکریپت فقط در صفحه‌ی اصلی بارگذاری می‌شد. بخش دموی همان فایل خودش را
+       با نبودنِ `#demo` خاموش می‌کند، پس چیزی اضافه اجرا نمی‌شود. *@
+    <script src="~/js/site.js" asp-append-version="true"></script>
+}
