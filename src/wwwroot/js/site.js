@@ -321,3 +321,29 @@
     play();
   }
 })();
+
+/* ───────────────────────── سرریزِ منوی هدر ─────────────────────────
+   تعداد آیتم‌های منو از پنل مدیریت تغییر می‌کند، پس هیچ عددِ ثابتی نمی‌تواند
+   بگوید «چند تا جا می‌شود». به‌جای حدس، خودِ مرورگر را می‌پرسیم: اگر عرضِ
+   محتوا از عرضِ ظرف بیشتر شد، ویژگی data-nav-scroll="overflow" گذاشته
+   می‌شود و CSS لبه‌ها را محو می‌کند.
+
+   بدون این، منو در حالت سرریز بی‌هیچ نشانه‌ای بریده می‌شد و کاربر نمی‌فهمید
+   آیتم بیشتری هم هست. */
+(function () {
+  var nav = document.querySelector("[data-nav-scroll]");
+  if (!nav) return;
+
+  var sync = function () {
+    // یک پیکسل رواداری: زیرپیکسل‌های چیدمان نباید سرریزِ کاذب بسازند.
+    var over = nav.scrollWidth - nav.clientWidth > 1;
+    nav.setAttribute("data-nav-scroll", over ? "overflow" : "");
+  };
+
+  sync();
+  if ("ResizeObserver" in window) new ResizeObserver(sync).observe(nav);
+  else window.addEventListener("resize", sync);
+
+  // فونت که دیر برسد عرضِ متن عوض می‌شود — یک بار دیگر می‌سنجیم.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(sync);
+})();
