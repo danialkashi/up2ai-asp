@@ -27,6 +27,45 @@ builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(o
     o.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(
         System.Text.Unicode.UnicodeRanges.All));
 
+// ─────────────────── جای زندگیِ داده‌ها: فایل یا پستگرس ───────────────────
+//
+// اگر رشته‌ی اتصال داده شده باشد همه‌چیز در پستگرس می‌نشیند، وگرنه همان
+// فایل‌های data/*.json. هیچ صفحه‌ای از این تصمیم خبر ندارد: انبارها فقط
+// IRecordStore می‌بینند.
+var dataDir = builder.Configuration["UP2AI_DATA_DIR"]
+              ?? Path.Combine(builder.Environment.ContentRootPath, "data");
+var connectionString = StorageFactory.ConnectionStringFrom(builder.Configuration);
+
+// حالت خط فرمان: انتقال یک‌باره‌ی داده‌ها از فایل به پستگرس.
+//
+//     dotnet run -- migrate-to-postgres [--force]
+//
+// این‌جا (و نه بالای فایل) اجرا می‌شود چون به پیکربندی و .env نیاز دارد.
+if (args.Length > 0 && args[0] == "migrate-to-postgres")
+{
+    if (connectionString is null)
+    {
+        Console.WriteLine("UP2AI_DATABASE_URL تنظیم نشده — مقصدی برای انتقال وجود ندارد.");
+        return 1;
+    }
+    return await Up2Ai.Services.Pg.PgMigrate.RunAsync(
+        dataDir, connectionString, args.Contains("--force"));
+}
+
+builder.Services.AddSingleton(sp =>
+{
+    var logs = sp.GetRequiredService<ILoggerFactory>();
+    Up2Ai.Services.Pg.PgClient? db = null;
+    if (connectionString is not null)
+    {
+        db = new Up2Ai.Services.Pg.PgClient(
+            Up2Ai.Services.Pg.PgConnectionInfo.Parse(connectionString),
+            logs.CreateLogger<Up2Ai.Services.Pg.PgClient>());
+    }
+    return new StorageFactory(dataDir, db, logs);
+});
+builder.Services.AddSingleton(sp => sp.GetRequiredService<StorageFactory>().Content());
+
 builder.Services.AddRazorPages();
 builder.Services.AddSingleton<ContentStore>();
 builder.Services.AddSingleton<LeadStore>();
@@ -65,6 +104,34 @@ builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompress
     o => o.Level = System.IO.Compression.CompressionLevel.Optimal);
 
 var app = builder.Build();
+
+// جدول‌ها را هنگام بالا آمدن تضمین می‌کنیم (همه‌ی دستورها if not exists دارند).
+//
+// چرا این‌جا و نه در یک ابزار مهاجرتِ جدا: schema این سایت پنج جدولِ ساده است
+// و نگه داشتنش کنار کد یعنی «دیپلوی کن، کار می‌کند» — بدون قدمِ فراموش‌شدنی.
+// انتقالِ *داده* اما هرگز خودکار نیست؛ آن یک دستور دستی است (بالا را ببین).
+{
+    var storage = app.Services.GetRequiredService<StorageFactory>();
+    if (storage.Db is { } db)
+    {
+        try
+        {
+            await db.ExecuteScriptAsync(Up2Ai.Services.Pg.PgSchema.CreateAll());
+            app.Logger.LogInformation("[storage] {Where}", storage.Describe());
+        }
+        catch (Exception ex)
+        {
+            // اگر دیتابیس در دسترس نباشد، سایت نباید بی‌صدا با داده‌ی خالی بالا
+            // بیاید — همان‌جا با پیام روشن متوقف می‌شود.
+            app.Logger.LogCritical(ex, "[storage] اتصال به پستگرس ممکن نشد؛ برنامه اجرا نمی‌شود");
+            throw;
+        }
+    }
+    else
+    {
+        app.Logger.LogInformation("[storage] {Where}", storage.Describe());
+    }
+}
 
 if (!app.Environment.IsDevelopment())
 {
