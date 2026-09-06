@@ -29,7 +29,7 @@ namespace Up2Ai.Services;
 /// درستِ عوض کردن همین یک کلاس است و نه صفحه‌ها — انبارها فقط از همین API
 /// استفاده می‌کنند.
 /// </summary>
-public sealed class JsonFileStore<T> where T : class
+public sealed class JsonFileStore<T> : IRecordStore<T> where T : class
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.Ordinal);
 

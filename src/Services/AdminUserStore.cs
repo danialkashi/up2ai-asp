@@ -41,12 +41,11 @@ public sealed class AdminUserStore
     /// <summary>شناسه‌ی مجازیِ ورود با رمزِ محیطی — کاربرِ واقعی نیست.</summary>
     public const string EnvUserId = "env";
 
-    private readonly JsonFileStore<AdminUser> _store;
+    private readonly IRecordStore<AdminUser> _store;
 
-    public AdminUserStore(IWebHostEnvironment env, IConfiguration config, ILogger<AdminUserStore> log)
+    public AdminUserStore(StorageFactory storage, ILogger<AdminUserStore> log)
     {
-        var dir = config["UP2AI_DATA_DIR"] ?? Path.Combine(env.ContentRootPath, "data");
-        _store = new JsonFileStore<AdminUser>(dir, "admin-users.json",
+        _store = storage.Records<AdminUser>("admin-users.json", Pg.PgSchema.AdminUsers, u => u.Id,
             u => u.Id.Length > 0 && u.Username.Length > 0 && u.PasswordHash.Length > 0, log);
     }
 

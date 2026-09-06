@@ -35,92 +35,20 @@ public sealed class Lead
 /// </summary>
 public sealed class LeadStore
 {
-    private static readonly SemaphoreSlim Gate = new(1, 1);
-    private static readonly JsonSerializerOptions JsonOpts = new()
+    private readonly IRecordStore<Lead> _store;
+
+    public LeadStore(StorageFactory storage, ILogger<LeadStore> log)
     {
-        WriteIndented = true,
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    };
-
-    private readonly string _dataDir;
-    private readonly ILogger<LeadStore> _log;
-
-    public LeadStore(IWebHostEnvironment env, IConfiguration config, ILogger<LeadStore> log)
-    {
-        _log = log;
-        _dataDir = config["UP2AI_DATA_DIR"] ?? Path.Combine(env.ContentRootPath, "data");
-    }
-
-    private string File_ => Path.Combine(_dataDir, "leads.json");
-
-    private List<Lead> ReadAllUnlocked()
-    {
-        try
-        {
-            if (!File.Exists(File_)) return new List<Lead>();
-            var raw = File.ReadAllText(File_);
-            var parsed = JsonSerializer.Deserialize<List<Lead>>(raw);
-            if (parsed is null) return new List<Lead>();
-            // هر رکورد جدا اعتبارسنجی می‌شود — یک خط خراب نباید کل فایل را بی‌اثر کند.
-            return parsed.Where(IsValid).ToList();
-        }
-        catch (Exception ex)
-        {
-            _log.LogError(ex, "[leads] فایل لیدها خوانده نشد");
-            return new List<Lead>();
-        }
-    }
-
-    private static bool IsValid(Lead? l) =>
-        l is not null && l.Id.Length > 0 && l.At.Length > 0 && l.Name.Length > 0;
-
-    private void WriteAllUnlocked(List<Lead> leads)
-    {
-        Directory.CreateDirectory(_dataDir);
-        var tmp = $"{File_}.{Environment.ProcessId}.tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(leads, JsonOpts));
-        File.Move(tmp, File_, overwrite: true);
-    }
-
-    /// <summary>
-    /// قفل بین‌پردازه‌ای: یک فایل قفل جدا باز می‌شود با FileShare.None. اگر
-    /// پردازه‌ی دیگری آن را گرفته باشد، کمی صبر و دوباره تلاش می‌کنیم.
-    /// </summary>
-    private async Task<T> WithLockAsync<T>(Func<T> body)
-    {
-        await Gate.WaitAsync();
-        try
-        {
-            Directory.CreateDirectory(_dataDir);
-            var lockPath = Path.Combine(_dataDir, ".leads.lock");
-            for (var attempt = 0; attempt < 50; attempt++)
-            {
-                try
-                {
-                    using var handle = new FileStream(
-                        lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-                    return body();
-                }
-                catch (IOException)
-                {
-                    await Task.Delay(20);
-                }
-            }
-            // بعد از یک ثانیه تلاش، بدون قفل ادامه می‌دهیم تا درخواست کاربر گم
-            // نشود؛ قفل نخی داخل همین پردازه هنوز برقرار است.
-            _log.LogWarning("[leads] قفل فایل گرفته نشد، بدون قفل بین‌پردازه‌ای ادامه داده شد");
-            return body();
-        }
-        finally
-        {
-            Gate.Release();
-        }
+        // قفل، نوشتنِ اتمی و کنار گذاشتنِ رکوردِ خراب همه در همان لایه‌ی مشترکی
+        // است که نوشته‌ها و کاربران پنل هم از آن استفاده می‌کنند — چه روی فایل،
+        // چه روی پستگرس.
+        _store = storage.Records<Lead>("leads.json", Pg.PgSchema.Leads, l => l.Id,
+            l => l.Id.Length > 0 && l.At.Length > 0 && l.Name.Length > 0, log);
     }
 
     public Task<Lead> AddAsync(string name, string reach, string business, string service, string need) =>
-        WithLockAsync(() =>
+        _store.MutateAsync(leads =>
         {
-            var leads = ReadAllUnlocked();
             var lead = new Lead
             {
                 Id = Guid.NewGuid().ToString(),
@@ -133,35 +61,29 @@ public sealed class LeadStore
                 Need = need,
             };
             leads.Add(lead);
-            WriteAllUnlocked(leads);
-            return lead;
+            return (true, lead);
         });
 
     /// <summary>تازه‌ترین بالا.</summary>
     public List<Lead> List() =>
-        ReadAllUnlocked()
+        _store.Read()
             .OrderByDescending(l => l.At, StringComparer.Ordinal)
             .ToList();
 
     public Task<bool> SetHandledAsync(string id, bool handled) =>
-        WithLockAsync(() =>
+        _store.MutateAsync(leads =>
         {
-            var leads = ReadAllUnlocked();
             var lead = leads.FirstOrDefault(l => l.Id == id);
-            if (lead is null) return false;
+            if (lead is null) return (false, false);
             lead.Handled = handled;
-            WriteAllUnlocked(leads);
-            return true;
+            return (true, true);
         });
 
     public Task<bool> DeleteAsync(string id) =>
-        WithLockAsync(() =>
+        _store.MutateAsync(leads =>
         {
-            var leads = ReadAllUnlocked();
-            var next = leads.Where(l => l.Id != id).ToList();
-            if (next.Count == leads.Count) return false;
-            WriteAllUnlocked(next);
-            return true;
+            var removed = leads.RemoveAll(l => l.Id == id);
+            return (removed > 0, removed > 0);
         });
 
     /// <summary>

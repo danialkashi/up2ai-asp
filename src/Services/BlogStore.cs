@@ -63,15 +63,14 @@ public sealed class Comment
 /// </summary>
 public sealed class BlogStore
 {
-    private readonly JsonFileStore<Post> _posts;
-    private readonly JsonFileStore<Comment> _comments;
+    private readonly IRecordStore<Post> _posts;
+    private readonly IRecordStore<Comment> _comments;
 
-    public BlogStore(IWebHostEnvironment env, IConfiguration config, ILogger<BlogStore> log)
+    public BlogStore(StorageFactory storage, ILogger<BlogStore> log)
     {
-        var dir = config["UP2AI_DATA_DIR"] ?? Path.Combine(env.ContentRootPath, "data");
-        _posts = new JsonFileStore<Post>(dir, "posts.json",
+        _posts = storage.Records<Post>("posts.json", Pg.PgSchema.Posts, p => p.Id,
             p => p.Id.Length > 0 && p.Slug.Length > 0 && p.Title.Length > 0, log);
-        _comments = new JsonFileStore<Comment>(dir, "comments.json",
+        _comments = storage.Records<Comment>("comments.json", Pg.PgSchema.Comments, c => c.Id,
             c => c.Id.Length > 0 && c.PostId.Length > 0 && c.Body.Length > 0, log);
     }
 
