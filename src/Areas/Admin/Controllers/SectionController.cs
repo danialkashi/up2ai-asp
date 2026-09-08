@@ -112,8 +112,10 @@ public class SectionController : Controller
                 return RedirectToAction("Index", new { section });
             }
 
-            // Save to storage
-            _store.Save(working);
+            // Save - need to merge into full content object
+            var current = _store.Get() as JsonObject ?? new JsonObject();
+            current[section] = working;
+            _store.Save(current);
 
             TempData["saved"] = $"Section '{section}' saved.";
             return RedirectToAction("Index", new { section });
