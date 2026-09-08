@@ -75,6 +75,9 @@ public class SectionController : Controller
         if (TempData["saved"] is string saved)
             model.Saved = saved;
 
+        if (TempData["error"] is string error)
+            model.Error = error;
+
         if (TempData["rejected"] is string rejected && rejected.Length > 0)
             model.Rejected = rejected.Split('|').ToList();
 
@@ -96,22 +99,30 @@ public class SectionController : Controller
         if (defaults is null || !defaults.ContainsKey(section))
             return NotFound();
 
-        // Rebuild working value from form
-        var working = RebuildFromForm(defaults[section]!, section, form);
-
-        // Validate section-specific fields
-        var validation = ValidateSection(section, working);
-        if (validation.HasErrors)
+        try
         {
-            TempData["rejected"] = string.Join("|", validation.Errors);
+            // Rebuild working value from form
+            var working = RebuildFromForm(defaults[section]!, section, form);
+
+            // Validate section-specific fields
+            var validation = ValidateSection(section, working);
+            if (validation.HasErrors)
+            {
+                TempData["rejected"] = string.Join("|", validation.Errors);
+                return RedirectToAction("Index", new { section });
+            }
+
+            // Save to storage
+            _store.Save(working);
+
+            TempData["saved"] = $"Section '{section}' saved.";
             return RedirectToAction("Index", new { section });
         }
-
-        // Save to storage
-        _store.Save(working);
-
-        TempData["saved"] = $"Section '{section}' saved.";
-        return RedirectToAction("Index", new { section });
+        catch (Exception ex)
+        {
+            TempData["error"] = $"خطا در ذخیره: {ex.Message}";
+            return RedirectToAction("Index", new { section });
+        }
     }
 
     private (bool HasErrors, List<string> Errors) ValidateSection(string section, JsonNode? working)
