@@ -112,6 +112,9 @@ public class SectionController : Controller
                 return RedirectToAction("Index", new { section });
             }
 
+            // Clear any previous validation errors
+            TempData.Remove("rejected");
+
             // Save - need to merge into full content object
             var current = _store.Get() as JsonObject;
             if (current is null)
