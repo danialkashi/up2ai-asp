@@ -53,9 +53,11 @@
         : Up2Ai.Services.AdminLabels.IsChoice(key) ? 2
         : 1;
 
-    static string InputClass(bool changed, bool multiline) =>
+    static string InputClass(bool changed, bool multiline, bool hasError) =>
         "w-full rounded-xl border bg-surface px-3.5 py-2.5 text-[14px] leading-[1.9] text-on-light outline-none transition-colors focus:border-brand "
-        + (changed ? "border-brand/40" : "border-hairline");
+        + (hasError ? "border-red-300 bg-red-50" 
+            : changed ? "border-brand/40" 
+            : "border-hairline");
 }
 
 @{
@@ -108,6 +110,9 @@
             if (AdminLabels.IsChoice(key))
             {
                 var options = AdminLabels.Options[key];
+                var choiceFieldKey = "f:" + path;
+                var choiceHasError = Model.Rejected.Contains(choiceFieldKey);
+                
                 <div class="flex flex-col gap-1.5">
                     <label for="@id" class="flex flex-wrap items-center gap-2 text-[13px] font-medium text-on-light">
                         @AdminLabels.LabelFor(key)
@@ -115,14 +120,18 @@
                         {
                             <span class="rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-normal text-brand-ink">تغییر کرده</span>
                         }
+                        @if (choiceHasError)
+                        {
+                            <span class="rounded-md bg-red-100 px-1.5 py-0.5 text-[11px] font-normal text-red-700">شماره باید با 98 شروع شود</span>
+                        }
                     </label>
                     @if (hint.Length > 0)
                     {
                         <p id="@(id)-hint" class="text-[12px] leading-[1.85] text-on-light-muted">@hint</p>
                     }
-                    <select id="@id" name="@("f:" + path)"
+                    <select id="@id" name="@choiceFieldKey"
                             aria-describedby="@(hint.Length > 0 ? id + "-hint" : null)"
-                            class="@InputClass(changed, false)">
+                            class="@InputClass(changed, false, choiceHasError)">
                         @* مقدارِ فعلی اگر در فهرست نبود (مثلاً از نسخه‌ی
                            قبلی یا ویرایش دستی فایل محتوا)، خودش هم گزینه
                            می‌شود. بدون این، select گزینه‌ی اول را انتخاب
@@ -142,12 +151,19 @@
             }
 
             var multiline = AdminLabels.IsMultiline(key, dval.Length > 0 ? dval : sval);
+            var stringFieldKey = "f:" + path;
+            var stringHasError = Model.Rejected.Contains(stringFieldKey);
+            
             <div class="flex flex-col gap-1.5">
                 <label for="@id" class="flex flex-wrap items-center gap-2 text-[13px] font-medium text-on-light">
                     @AdminLabels.LabelFor(key)
                     @if (changed)
                     {
                         <span class="rounded-md bg-brand/10 px-1.5 py-0.5 text-[11px] font-normal text-brand-ink">تغییر کرده</span>
+                    }
+                    @if (stringHasError)
+                    {
+                        <span class="rounded-md bg-red-100 px-1.5 py-0.5 text-[11px] font-normal text-red-700">شماره باید با 98 شروع شود</span>
                     }
                 </label>
 
@@ -159,15 +175,15 @@
                 @if (multiline)
                 {
                     var rows = Math.Min(8, Math.Max(3, (int)Math.Ceiling((sval.Length == 0 ? 1 : sval.Length) / 70.0)));
-                    <textarea id="@id" name="@("f:" + path)" rows="@rows" dir="auto"
+                    <textarea id="@id" name="@stringFieldKey" rows="@rows" dir="auto"
                               aria-describedby="@(hint.Length > 0 ? id + "-hint" : null)"
-                              class="@InputClass(changed, true)">@sval</textarea>
+                              class="@InputClass(changed, true, stringHasError)">@sval</textarea>
                 }
                 else
                 {
-                    <input id="@id" name="@("f:" + path)" type="text" value="@sval" dir="auto"
+                    <input id="@id" name="@stringFieldKey" type="text" value="@sval" dir="auto"
                            aria-describedby="@(hint.Length > 0 ? id + "-hint" : null)"
-                           class="@InputClass(changed, false)" />
+                           class="@InputClass(changed, false, stringHasError)" />
                 }
 
                 @if (changed)

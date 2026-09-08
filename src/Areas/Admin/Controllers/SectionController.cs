@@ -99,10 +99,40 @@ public class SectionController : Controller
         // Rebuild working value from form
         var working = RebuildFromForm(defaults[section]!, section, form);
 
-        // Here you would save the working value to storage
-        // For now, just redirect back
+        // Validate section-specific fields
+        var validation = ValidateSection(section, working);
+        if (validation.HasErrors)
+        {
+            TempData["rejected"] = string.Join("|", validation.Errors);
+            return RedirectToAction("Index", new { section });
+        }
+
+        // Save to storage
+        _store.Save(working);
+
         TempData["saved"] = $"Section '{section}' saved.";
         return RedirectToAction("Index", new { section });
+    }
+
+    private (bool HasErrors, List<string> Errors) ValidateSection(string section, JsonNode? working)
+    {
+        var errors = new List<string>();
+
+        if (section == "contact" && working is JsonObject contact)
+        {
+            // Validate WhatsApp number: if provided, must start with 98
+            if (contact.TryGetPropertyValue("whatsapp", out var wp) && 
+                wp is JsonValue wpVal && wpVal.TryGetValue<string>(out var whatsapp))
+            {
+                whatsapp = whatsapp?.Trim() ?? "";
+                if (!string.IsNullOrEmpty(whatsapp) && !whatsapp.StartsWith("98"))
+                {
+                    errors.Add("f:contact.whatsapp");
+                }
+            }
+        }
+
+        return (!errors.Any(), errors);
     }
 
     /// <summary>List operation (add/remove/reorder items)</summary>
