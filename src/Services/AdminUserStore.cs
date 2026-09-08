@@ -9,32 +9,24 @@ public sealed class AdminUser
     [JsonPropertyName("username")] public string Username { get; set; } = "";
     /// <summary>فقط هشِ PBKDF2 — خودِ رمز هیچ‌جا ذخیره نمی‌شود.</summary>
     [JsonPropertyName("passwordHash")] public string PasswordHash { get; set; } = "";
+    /// <summary>Version incremented on each password change. Used to invalidate all sessions when password changes.</summary>
+    [JsonPropertyName("passwordVersion")] public int PasswordVersion { get; set; } = 1;
     [JsonPropertyName("displayName")] public string DisplayName { get; set; } = "";
     [JsonPropertyName("createdAt")] public string CreatedAt { get; set; } = "";
     [JsonPropertyName("lastLoginAt")] public string LastLoginAt { get; set; } = "";
     [JsonPropertyName("active")] public bool Active { get; set; } = true;
 
+    /// <summary>Computed display label. Not persisted.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
     public string Label => DisplayName.Length > 0 ? DisplayName : Username;
 }
 
 /// <summary>
-/// کاربرانِ پنل مدیریت.
+/// Admin users stored in PostgreSQL.
 ///
-/// قبلاً پنل فقط یک رمز داشت که هشش در متغیر محیطی `ADMIN_PASSWORD_HASH`
-/// می‌نشست. برای یک نفر کافی بود، ولی سه محدودیت داشت: نمی‌شد فهمید کدام
-/// آدم وارد شده، برای اضافه کردنِ نفر دوم راهی نبود، و عوض کردن رمز یعنی
-/// دسترسی به سرور و ری‌استارتِ برنامه.
-///
-/// حالا کاربران در انبارِ داده‌اند و همه‌ی این سه حل می‌شود. دو نکته‌ی مهم:
-///
-///   ۱) سازگاری با گذشته. اگر هیچ کاربری ساخته نشده باشد، همان رمزِ
-///      محیطی کار می‌کند — یعنی این تغییر کسی را از پنلِ خودش بیرون
-///      نمی‌اندازد. اولین کاربر که ساخته شد، ورودِ محیطی به‌عنوان راهِ
-///      پشتیبان باقی می‌ماند مگر این‌که صاحبِ سایت خودش متغیر را بردارد.
-///
-///   ۲) رمزها با همان PBKDF2‌ای هش می‌شوند که <see cref="AdminAuth"/> از
-///      قبل داشت (۲۱۰٬۰۰۰ تکرار، توصیه‌ی OWASP). هیچ الگوریتمِ دومی وارد
-///      پروژه نشده.
+/// Each admin user has a username, hashed password, and optional display name.
+/// Initial admin is created by AdminBootstrap using Admin:InitialPasswordHash configuration.
+/// Passwords are stored using PBKDF2-SHA256 with 210,000 iterations (OWASP recommended).
 /// </summary>
 public sealed class AdminUserStore
 {
@@ -45,7 +37,7 @@ public sealed class AdminUserStore
 
     public AdminUserStore(StorageFactory storage, ILogger<AdminUserStore> log)
     {
-        _store = storage.Records<AdminUser>("admin-users.json", Pg.PgSchema.AdminUsers, u => u.Id,
+        _store = storage.Records<AdminUser>(Pg.PgSchema.AdminUsers, u => u.Id,
             u => u.Id.Length > 0 && u.Username.Length > 0 && u.PasswordHash.Length > 0, log);
     }
 
@@ -131,7 +123,57 @@ public sealed class AdminUserStore
         {
             var user = list.FirstOrDefault(u => u.Id == id);
             if (user is null) return (false, new Result(false, "کاربر پیدا نشد."));
+            
             user.PasswordHash = AdminAuth.HashPassword(password);
+            user.PasswordVersion++; // Increment version to invalidate all sessions
+            
+            return (true, new Result(true));
+        });
+    }
+
+    /// <summary>
+    /// Change password with verification of current password.
+    /// Required for self-service password change - user must prove knowledge of current password.
+    /// </summary>
+    public async Task<Result> ChangePasswordAsync(string id, string currentPassword, string newPassword)
+    {
+        var user = ById(id);
+        if (user is null)
+        {
+            return new Result(false, "کاربر پیدا نشد.");
+        }
+
+        // Verify current password
+        if (!AdminAuth.VerifyPassword(currentPassword, user.PasswordHash))
+        {
+            return new Result(false, "رمز کنونی نادرست است.");
+        }
+
+        // Validate new password
+        var invalid = ValidatePassword(newPassword);
+        if (invalid is not null)
+        {
+            return new Result(false, invalid);
+        }
+
+        // Persist new password
+        var result = await SetPasswordAsync(id, newPassword);
+        return result;
+    }
+
+    /// <summary>
+    /// Set password hash directly (used for bootstrap with pre-computed hash).
+    /// Internal use only.
+    /// </summary>
+    public Task<Result> SetPasswordHashDirectAsync(string id, string hash)
+    {
+        if (hash.Length < 20) return Task.FromResult(new Result(false, "Invalid hash format."));
+
+        return _store.MutateAsync(list =>
+        {
+            var user = list.FirstOrDefault(u => u.Id == id);
+            if (user is null) return (false, new Result(false, "کاربر پیدا نشد."));
+            user.PasswordHash = hash;
             return (true, new Result(true));
         });
     }

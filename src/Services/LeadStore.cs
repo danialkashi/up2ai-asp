@@ -39,10 +39,7 @@ public sealed class LeadStore
 
     public LeadStore(StorageFactory storage, ILogger<LeadStore> log)
     {
-        // قفل، نوشتنِ اتمی و کنار گذاشتنِ رکوردِ خراب همه در همان لایه‌ی مشترکی
-        // است که نوشته‌ها و کاربران پنل هم از آن استفاده می‌کنند — چه روی فایل،
-        // چه روی پستگرس.
-        _store = storage.Records<Lead>("leads.json", Pg.PgSchema.Leads, l => l.Id,
+        _store = storage.Records<Lead>(Pg.PgSchema.Leads, l => l.Id,
             l => l.Id.Length > 0 && l.At.Length > 0 && l.Name.Length > 0, log);
     }
 

@@ -127,8 +127,10 @@ public sealed class PgRecordStore<T> : IRecordStore<T> where T : class
                     // فقط چیزی که واقعاً عوض شده نوشته می‌شود — هم سریع‌تر است
                     // هم updated_at سطرهای دست‌نخورده را جابه‌جا نمی‌کند.
                     if (before.TryGetValue(id, out var old) && old.Ord == i && JsonEquals(old.Doc, doc))
+                    {
                         continue;
-
+                    }
+                    
                     await session.ExecuteAsync(
                         $"insert into {_table} (id, ord, doc, updated_at) values ($1, $2, $3::jsonb, now()) " +
                         "on conflict (id) do update set ord = excluded.ord, doc = excluded.doc, updated_at = now()",

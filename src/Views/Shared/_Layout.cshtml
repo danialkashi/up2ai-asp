@@ -1,0 +1,249 @@
+@{
+    // متادیتا از محتوای زنده خوانده می‌شود (نه ثابت‌های کد) تا اگر نام یا توضیح
+    // سایت از پنل مدیریت عوض شد، عنوان تب و کارت اشتراک‌گذاری هم همان لحظه
+    // عوض شود — همان رفتار `generateMetadata` در نسخه‌ی قبلی.
+    // صفحه‌ی خطا محتوا را لود نمی‌کند (و اگر همان لود خطا داده باشد، نباید
+    // دوباره تلاش کنیم)، پس این‌جا به یک مقدار خالی برمی‌گردیم تا صفحه‌ی خطا
+    // خودش خطای دوم ندهد.
+    var c = ViewData["Content"] as Cv? ?? new Cv(null);
+    var site = c["site"];
+    var copy = c["copy"];
+    var url = site["url"].S;
+    // عنوانِ اشتراک‌گذاری = عنوانِ همان صفحه اگر داده شده باشد؛ وگرنه
+    // عنوانِ سراسریِ سایت. لینکِ یک نوشته در تلگرام باید عنوانِ خودِ نوشته را
+    // نشان بدهد، نه شعارِ سایت.
+    var ogTitle = ViewData["Title"] as string ?? $"{site["name"]} — {site["tagline"]}";
+    var pageTitle = ViewData["Title"] as string ?? $"{site["name"]} — {copy["seo"]["titleSuffix"]}";
+    var noIndex = ViewData["NoIndex"] as bool? ?? false;
+    var keywords = string.Join(",", copy["seo"]["keywords"].Select(k => k.S));
+
+    // متادیتای مخصوصِ هر صفحه. تا وقتی سایت تک‌صفحه بود، توضیح و آدرسِ
+    // canonical برای همه یکی بود؛ با آمدنِ وبلاگ دیگر نیست — دو صفحه با یک
+    // توضیح و یک canonical یعنی گوگل یکی‌شان را نسخه‌ی تکراریِ دیگری
+    // می‌بیند. هر صفحه می‌تواند این‌ها را از ViewData بدهد و اگر نداد،
+    // همان مقدارهای سراسری می‌آید.
+    var description = ViewData["Description"] as string ?? site["description"].S;
+    var canonical = ViewData["Canonical"] as string ?? url;
+    var ogType = ViewData["OgType"] as string ?? "website";
+    var articlePublished = ViewData["ArticlePublished"] as string;
+    var articleModified = ViewData["ArticleModified"] as string;
+}<!DOCTYPE html>
+<html lang="fa" dir="rtl" class="h-full">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <meta name="color-scheme" content="light" />
+    @* پیش‌بارگذاری فونت — مهم برای شبکه‌های کند *@
+    <link rel="preload" href="~/fonts/Vazirmatn-var.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <style>
+        /* استایلِ محتوای HTML (از CKEditor) */
+        .prose-content {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+        .prose-content p {
+            margin-top: 1.25rem;
+            font-size: 0.9375rem;
+            line-height: 2.1;
+            color: var(--color-on-light);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+        .prose-content h1,
+        .prose-content h2 {
+            margin-top: 2.5rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            line-height: 1.6;
+            color: var(--color-on-light);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .prose-content h3 {
+            margin-top: 2rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            line-height: 1.7;
+            color: var(--color-on-light);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .prose-content h4 {
+            margin-top: 1.5rem;
+            font-size: 1rem;
+            font-weight: bold;
+            line-height: 1.7;
+            color: var(--color-on-light);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .prose-content ul,
+        .prose-content ol {
+            margin-top: 1.25rem;
+            margin-bottom: 1.25rem;
+            padding-right: 1.5rem;
+            list-style-position: inside;
+        }
+        .prose-content li {
+            font-size: 0.9375rem;
+            line-height: 2;
+            color: var(--color-on-light);
+            margin-bottom: 0.5rem;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .prose-content blockquote {
+            margin-top: 1.5rem;
+            border-right: 4px solid var(--color-brand);
+            padding-right: 1.25rem;
+            font-size: 0.9375rem;
+            line-height: 2;
+            color: var(--color-on-light);
+            background-color: rgba(99, 102, 241, 0.04);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .prose-content code {
+            font-size: 0.8rem;
+            background-color: var(--color-surface-2);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            color: var(--color-brand-ink);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            word-break: break-all;
+        }
+        .prose-content pre {
+            margin-top: 1.5rem;
+            background-color: var(--color-ink);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            overflow-x: auto;
+        }
+        .prose-content pre code {
+            background-color: transparent;
+            color: var(--color-on-dark);
+            padding: 0;
+            font-size: 0.8125rem;
+            line-height: 1.9;
+            word-break: break-all;
+        }
+        .prose-content a {
+            color: var(--color-brand-ink);
+            text-decoration: underline;
+            text-decoration-offset: 0.25rem;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+        .prose-content a:hover {
+            color: var(--color-brand);
+        }
+        .prose-content strong {
+            font-weight: bold;
+            color: var(--color-on-light);
+        }
+        .prose-content em {
+            font-style: italic;
+            color: var(--color-on-light);
+        }
+        .prose-content img {
+            max-width: 100%;
+            height: auto;
+            margin-top: 1.25rem;
+            margin-bottom: 1.25rem;
+            border-radius: 0.5rem;
+        }
+        .prose-content hr {
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            border: none;
+            border-top: 1px solid var(--color-hairline);
+        }
+        .prose-content table {
+            width: 100%;
+            margin-top: 1.25rem;
+            margin-bottom: 1.25rem;
+            border-collapse: collapse;
+        }
+        .prose-content th {
+            background-color: var(--color-surface-2);
+            padding: 0.75rem;
+            text-align: right;
+            font-weight: bold;
+            border: 1px solid var(--color-hairline);
+        }
+        .prose-content td {
+            padding: 0.75rem;
+            border: 1px solid var(--color-hairline);
+        }
+    </style>
+    <title>@pageTitle</title>
+    @if (noIndex)
+    {
+        @* پنل هرگز نباید در نتایج جست‌وجو بیاید. کنار این، مسیر /admin در
+           robots.txt هم مسدود شده — یکی برای موتورهای مؤدب، یکی برای بقیه. *@
+        <meta name="robots" content="noindex, nofollow, nocache" />
+    }
+    else
+    {
+        <meta name="description" content="@description" />
+        <meta name="application-name" content="@site["name"]" />
+        <meta name="keywords" content="@keywords" />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="@canonical" />
+        <meta property="og:title" content="@ogTitle" />
+        <meta property="og:description" content="@description" />
+        <meta property="og:site_name" content="@site["name"]" />
+        <meta property="og:locale" content="fa_IR" />
+        <meta property="og:image" content="@(url)/opengraph-image.png" />
+        <meta property="og:image:type" content="image/png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:url" content="@canonical" />
+        <meta property="og:type" content="@ogType" />
+        @if (articlePublished is not null)
+        {
+            <meta property="article:published_time" content="@articlePublished" />
+        }
+        @if (articleModified is not null)
+        {
+            <meta property="article:modified_time" content="@articleModified" />
+        }
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="@ogTitle" />
+        <meta name="twitter:description" content="@description" />
+        <meta name="twitter:image" content="@(url)/opengraph-image.png" />
+        <meta name="twitter:image:type" content="image/png" />
+        <meta name="twitter:image:width" content="1200" />
+        <meta name="twitter:image:height" content="630" />
+    }
+    <link rel="icon" href="~/icon.svg" sizes="any" type="image/svg+xml" />
+    @if (!noIndex)
+    {
+        @* فیدِ وبلاگ برای خواننده‌ها و ابزارهایی که خودشان دنبالش می‌گردند *@
+        <link rel="alternate" type="application/rss+xml" title="@copy["blog"]["heading"]" href="/blog/feed.xml" />
+    }
+    @await RenderSectionAsync("Head", required: false)
+</head>
+<body class="flex min-h-full flex-col">
+    <partial name="_LogoSprite" />
+    @* داده‌ی ساخت‌یافته دقیقاً همان‌جایی می‌نشیند که نسخه‌ی قبلی می‌گذاشت:
+       داخل body، بلافاصله بعد از اسپرایت لوگو. *@
+    @if (!(ViewData["NoIndex"] as bool? ?? false))
+    {
+        <partial name="_JsonLd" />
+    }
+    @* پس‌زمینه‌ی این لینک همیشه سفیدِ ثابت است، پس متنش هم یک مشکیِ ثابت است. *@
+    <a href="#main"
+       class="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-on-light">
+        @copy["header"]["skipToContent"]
+    </a>
+    @RenderBody()
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+

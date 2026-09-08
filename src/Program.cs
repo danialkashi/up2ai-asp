@@ -1,24 +1,7 @@
 using Up2Ai.Services;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// حالت خط فرمان: ساخت هش رمز پنل مدیریت.
-//
-//     dotnet run -- hash-password
-//
-// رمز را می‌پرسد و هشش را چاپ می‌کند. خودِ رمز نه جایی ذخیره می‌شود، نه در
-// history ترمینال می‌ماند (چون به‌عنوان آرگومان گرفته نمی‌شود)، و نه موقع تایپ
-// روی صفحه دیده می‌شود.
-// ─────────────────────────────────────────────────────────────────────────────
-if (args.Length > 0 && args[0] == "hash-password")
-{
-    return HashPasswordCommand.Run();
-}
+using Up2Ai.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// متغیرهای محیطی بدون پیشوند هم خوانده شوند (ADMIN_PASSWORD_HASH و …)، و
-// فایل `.env` کنار برنامه هم اگر بود — تا تجربه‌ی راه‌اندازی مثل قبل بماند.
-DotEnv.LoadInto(builder.Configuration, Path.Combine(builder.Environment.ContentRootPath, ".env"));
 
 // بدون این، انکودر پیش‌فرض Razor هر حرف غیرلاتین را به `&#x…;` تبدیل می‌کند:
 // صفحه درست دیده می‌شود ولی حجم HTML چند برابر می‌شود و خروجی دیگر با نسخه‌ی
@@ -27,49 +10,57 @@ builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(o
     o.TextEncoderSettings = new System.Text.Encodings.Web.TextEncoderSettings(
         System.Text.Unicode.UnicodeRanges.All));
 
-// ─────────────────── جای زندگیِ داده‌ها: فایل یا پستگرس ───────────────────
+// ────────────────── Storage: PostgreSQL Mandatory ──────────────────────────
 //
-// اگر رشته‌ی اتصال داده شده باشد همه‌چیز در پستگرس می‌نشیند، وگرنه همان
-// فایل‌های data/*.json. هیچ صفحه‌ای از این تصمیم خبر ندارد: انبارها فقط
-// IRecordStore می‌بینند.
-var dataDir = builder.Configuration["UP2AI_DATA_DIR"]
-              ?? Path.Combine(builder.Environment.ContentRootPath, "data");
+// PostgreSQL is the ONLY runtime persistence mechanism for application state
+// (admin users, authentication, database records).
+// 
+// The connection string is REQUIRED and must be configured via:
+// - ConnectionStrings:DefaultConnection in appsettings
+// - ConnectionStrings__DefaultConnection environment variable
+// - DATABASE_URL environment variable (cloud platform convention)
+//
+// If PostgreSQL is unavailable, the application fails at startup with a clear error
+// message. There is no JSON fallback for authentication or admin state.
+// 
+// Website content can optionally use either PostgreSQL or JSON files, but admin
+// credentials are ALWAYS persisted in PostgreSQL only.
 var connectionString = StorageFactory.ConnectionStringFrom(builder.Configuration);
-
-// حالت خط فرمان: انتقال یک‌باره‌ی داده‌ها از فایل به پستگرس.
-//
-//     dotnet run -- migrate-to-postgres [--force]
-//
-// این‌جا (و نه بالای فایل) اجرا می‌شود چون به پیکربندی و .env نیاز دارد.
-if (args.Length > 0 && args[0] == "migrate-to-postgres")
-{
-    if (connectionString is null)
-    {
-        Console.WriteLine("UP2AI_DATABASE_URL تنظیم نشده — مقصدی برای انتقال وجود ندارد.");
-        return 1;
-    }
-    return await Up2Ai.Services.Pg.PgMigrate.RunAsync(
-        dataDir, connectionString, args.Contains("--force"));
-}
 
 builder.Services.AddSingleton(sp =>
 {
     var logs = sp.GetRequiredService<ILoggerFactory>();
-    Up2Ai.Services.Pg.PgClient? db = null;
-    if (connectionString is not null)
+    
+    if (string.IsNullOrWhiteSpace(connectionString))
     {
-        db = new Up2Ai.Services.Pg.PgClient(
-            Up2Ai.Services.Pg.PgConnectionInfo.Parse(connectionString),
-            logs.CreateLogger<Up2Ai.Services.Pg.PgClient>());
+        throw new InvalidOperationException(
+            "ConnectionStrings:DefaultConnection must be configured. " +
+            "Set it via environment variable ConnectionStrings__DefaultConnection or DATABASE_URL.");
     }
-    return new StorageFactory(dataDir, db, logs);
+
+    var db = new Up2Ai.Services.Pg.PgClient(
+        Up2Ai.Services.Pg.PgConnectionInfo.Parse(connectionString),
+        logs.CreateLogger<Up2Ai.Services.Pg.PgClient>());
+    return new StorageFactory(db, logs);
 });
 builder.Services.AddSingleton(sp => sp.GetRequiredService<StorageFactory>().Content());
 
-builder.Services.AddRazorPages();
+builder.Services.AddControllersWithViews();
+builder.Services.AddAuthentication("Cookies")
+    .AddCookie("Cookies", options =>
+    {
+        options.LoginPath = "/admin/account/login";
+        options.LogoutPath = "/admin/account/logout";
+        options.AccessDeniedPath = "/admin/account/login";
+        options.ExpireTimeSpan = TimeSpan.FromHours(12);
+        options.SlidingExpiration = true;
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    });
+builder.Services.AddAuthorization();
 builder.Services.AddSingleton<ContentStore>();
 builder.Services.AddSingleton<LeadStore>();
-builder.Services.AddSingleton<AdminAuth>();
 builder.Services.AddSingleton<BlogStore>();
 builder.Services.AddSingleton<AdminUserStore>();
 // singleton چون شمارشِ IPها و توکن‌های مصرف‌شده باید بین درخواست‌ها بماند.
@@ -109,41 +100,41 @@ var app = builder.Build();
 //
 // چرا این‌جا و نه در یک ابزار مهاجرتِ جدا: schema این سایت پنج جدولِ ساده است
 // و نگه داشتنش کنار کد یعنی «دیپلوی کن، کار می‌کند» — بدون قدمِ فراموش‌شدنی.
-// انتقالِ *داده* اما هرگز خودکار نیست؛ آن یک دستور دستی است (بالا را ببین).
 {
     var storage = app.Services.GetRequiredService<StorageFactory>();
-    if (storage.Db is { } db)
+    try
     {
-        try
-        {
-            await db.ExecuteScriptAsync(Up2Ai.Services.Pg.PgSchema.CreateAll());
-            app.Logger.LogInformation("[storage] {Where}", storage.Describe());
-        }
-        catch (Exception ex)
-        {
-            // اگر دیتابیس در دسترس نباشد، سایت نباید بی‌صدا با داده‌ی خالی بالا
-            // بیاید — همان‌جا با پیام روشن متوقف می‌شود.
-            app.Logger.LogCritical(ex, "[storage] اتصال به پستگرس ممکن نشد؛ برنامه اجرا نمی‌شود");
-            throw;
-        }
-    }
-    else
-    {
+        await storage.Db.ExecuteScriptAsync(Up2Ai.Services.Pg.PgSchema.CreateAll());
         app.Logger.LogInformation("[storage] {Where}", storage.Describe());
+    }
+    catch (Exception ex)
+    {
+        // اگر دیتابیس در دسترس نباشد، سایت نباید بی‌صدا با داده‌ی خالی بالا
+        // بیاید — همان‌جا با پیام روشن متوقف می‌شود.
+        app.Logger.LogCritical(ex, "[storage] اتصال به پستگرس ممکن نشد؛ برنامه اجرا نمی‌شود");
+        throw;
+    }
+
+    // Bootstrap initial admin user if none exists
+    var users = app.Services.GetRequiredService<AdminUserStore>();
+    try
+    {
+        await Up2Ai.Services.AdminBootstrap.EnsureAdminAsync(users, builder.Configuration, app.Logger);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogCritical(ex, "[bootstrap] Initial admin creation failed");
+        throw;
     }
 }
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error");
+    app.UseExceptionHandler("/error");
 }
 
-// آدرسِ اشتباه باید صفحه‌ی ۴۰۴ی فارسیِ خودمان را بگیرد، نه یک پاسخِ خالی.
-// (قبل از این، /هرچیز-اشتباه یک بدنه‌ی صفربایتی برمی‌گرداند و متنِ «صفحه‌ی
-// ۴۰۴» که در پنل مدیریت قابل ویرایش بود هیچ‌وقت جایی دیده نمی‌شد.)
-// ReExecute یعنی کد وضعیت ۴۰۴ حفظ می‌شود و فقط بدنه از /Error رندر می‌شود —
-// برای موتورهای جست‌وجو مهم است که ۲۰۰ برنگردد.
-app.UseStatusCodePagesWithReExecute("/Error");
+// آدرسِ اشتباه باید صفحه‌ی ۴۰۴ی فارسیِ خودمان را بگیرد.
+app.UseStatusCodePagesWithReExecute("/error/{0}");
 
 // ترتیب مهم است: فشرده‌سازی باید *قبل* از هر چیزی باشد که بدنه می‌نویسد.
 app.UseResponseCompression();
@@ -175,116 +166,26 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseRouting();
+app.UseAuthentication();
+app.UsePasswordVersionValidation();
+app.UseAuthorization();
 app.UseAntiforgery();
-app.MapRazorPages();
+
+// Security headers
+app.Use((context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    return next();
+});
+
+app.MapControllerRoute(
+    name: "areas",
+    pattern: "{area:exists}/{controller=Dashboard}/{action=Index}/{id?}");
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
 return 0;
-
-/// <summary>نقطه‌ی ورود خط فرمان برای ساخت هش رمز.</summary>
-internal static class HashPasswordCommand
-{
-    public static int Run()
-    {
-        var pw = Prompt("رمز پنل مدیریت: ");
-        if (pw.Length < 10)
-        {
-            Console.Error.WriteLine("رمز کوتاه است — حداقل ۱۰ کاراکتر بگذار.");
-            return 1;
-        }
-        var again = Prompt("دوباره برای اطمینان: ");
-        if (pw != again)
-        {
-            Console.Error.WriteLine("دو رمز یکی نبودند.");
-            return 1;
-        }
-
-        var secret = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
-            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
-
-        Console.WriteLine();
-        Console.WriteLine("این دو خط را در فایل .env کنار برنامه (یا در متغیرهای محیطی هاست) بگذار:");
-        Console.WriteLine();
-        Console.WriteLine($"ADMIN_PASSWORD_HASH={AdminAuth.HashPassword(pw)}");
-        Console.WriteLine($"ADMIN_SESSION_SECRET={secret}");
-        Console.WriteLine();
-        Console.WriteLine("(.env در .gitignore هست، پس وارد مخزن نمی‌شود.)");
-        Console.WriteLine("بعد از تغییر .env باید برنامه را دوباره اجرا کنی.");
-        return 0;
-    }
-
-    /// <summary>ورودی را با ستاره نشان می‌دهد تا رمز روی صفحه نیفتد.</summary>
-    private static string Prompt(string question)
-    {
-        Console.Write(question);
-
-        // اگر ورودی از ترمینال واقعی نمی‌آید (لوله، اسکریپت، CI)، ReadKey
-        // کار نمی‌کند. در آن حالت خط را عادی می‌خوانیم — ستاره نشان دادن
-        // آن‌جا معنایی هم ندارد.
-        if (Console.IsInputRedirected)
-        {
-            var line = Console.ReadLine() ?? "";
-            Console.WriteLine();
-            return line;
-        }
-
-        var buf = new System.Text.StringBuilder();
-        while (true)
-        {
-            var key = Console.ReadKey(intercept: true);
-            if (key.Key == ConsoleKey.Enter) { Console.WriteLine(); break; }
-            if (key.Key == ConsoleKey.Backspace)
-            {
-                if (buf.Length > 0) { buf.Length--; Console.Write("\b \b"); }
-                continue;
-            }
-            if (char.IsControl(key.KeyChar)) continue;
-            buf.Append(key.KeyChar);
-            Console.Write('*');
-        }
-        return buf.ToString();
-    }
-}
-
-/// <summary>
-/// خواننده‌ی ساده‌ی فایل `.env`.
-///
-/// عمداً یک پیاده‌سازی چندخطیِ خودمان است و نه یک پکیج بیرونی: پروژه هیچ
-/// وابستگی NuGet ندارد تا روی هر سروری (حتی بدون دسترسی به nuget.org) بیلد
-/// بگیرد.
-/// </summary>
-internal static class DotEnv
-{
-    /// <summary>
-    /// مقدارهای `.env` را *فقط برای کلیدهایی که هنوز مقدار ندارند* می‌گذارد.
-    ///
-    /// قبلاً این متد منبعِ خودش را به انتهای زنجیره اضافه می‌کرد و در
-    /// <c>IConfiguration</c> آخرین منبع برنده است — یعنی یک فایل `.env`
-    /// جامانده روی سرور، بی‌صدا متغیرهای محیطیِ خودِ هاست را هم بی‌اثر
-    /// می‌کرد. سناریوی واقعی‌اش این است: رمز پنل را از پنلِ هاست عوض می‌کنی،
-    /// کار نمی‌کند، و هیچ سرنخی هم نیست که چرا.
-    ///
-    /// حالا ترتیب درست است: متغیر محیطی و آرگومان خط فرمان بر `.env` مقدم‌اند
-    /// و `.env` فقط جای خالی‌ها را پر می‌کند — که همان کاری است که همه از یک
-    /// فایل `.env` انتظار دارند.
-    /// </summary>
-    public static void LoadInto(ConfigurationManager config, string path)
-    {
-        if (!File.Exists(path)) return;
-        var values = new Dictionary<string, string?>();
-        foreach (var raw in File.ReadAllLines(path))
-        {
-            var line = raw.Trim();
-            if (line.Length == 0 || line.StartsWith('#')) continue;
-            var eq = line.IndexOf('=');
-            if (eq <= 0) continue;
-            var key = line[..eq].Trim();
-            var value = line[(eq + 1)..].Trim();
-            if (value.Length >= 2 && value[0] == '"' && value[^1] == '"') value = value[1..^1];
-            // کلیدی که از قبل مقدار دارد (متغیر محیطی، خط فرمان، appsettings)
-            // دست‌نخورده می‌ماند.
-            if (string.IsNullOrEmpty(config[key])) values[key] = value;
-        }
-        if (values.Count > 0) config.AddInMemoryCollection(values);
-    }
-}

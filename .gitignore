@@ -7,6 +7,12 @@ out/
 data/
 # فقط برای ساخت CSS روی ماشین توسعه — لازمِ اجرا نیست
 node_modules/
+# Production configuration with real secrets — must not be tracked
+appsettings.Production.json
+# پسوند‌های رمزگذاری شده
+secrets.json
+*.pem
+*.key
 
 # کش‌های ویژوال استودیو و فایل تنظیماتِ شخصیِ هر توسعه‌دهنده — نه بیلد لازمشان
 # دارد نه کس دیگری. (نسخه‌ی فعلیِ مخزن ۱۹ فایل از .vs/ را دارد؛ برای بیرون

@@ -5,25 +5,10 @@ using System.Text;
 namespace Up2Ai.Services;
 
 /// <summary>
-/// احراز هویت پنل مدیریت.
+/// Admin authentication and password hashing.
 ///
-/// ┌──────────────────────────────────────────────────────────────────────┐
-/// │ رمز عبور هیچ‌جا در این مخزن نیست و نباید باشد.                       │
-/// │                                                                      │
-/// │ فقط *هش* رمز در متغیر محیطی `ADMIN_PASSWORD_HASH` می‌نشیند، و آن هش  │
-/// │ را خودت با این دستور از روی رمز خودت می‌سازی:                        │
-/// │                                                                      │
-/// │     dotnet run -- hash-password                                      │
-/// │                                                                      │
-/// │ اگر این متغیر (یا `ADMIN_SESSION_SECRET`) تنظیم نشده باشد، پنل اصلاً  │
-/// │ فرم ورود نشان نمی‌دهد — یعنی هیچ‌وقت رمز پیش‌فرضی وجود ندارد که کسی   │
-/// │ حدسش بزند.                                                           │
-/// └──────────────────────────────────────────────────────────────────────┘
-///
-/// تفاوت با نسخه‌ی Node: آن‌جا هش با scrypt ساخته می‌شد، که در .NET به‌صورت
-/// داخلی وجود ندارد. این‌جا PBKDF2-SHA256 استفاده شده که در خود فریم‌ورک هست
-/// (بدون هیچ پکیج بیرونی). یعنی هشِ قبلی دیگر کار نمی‌کند و باید یک بار رمز
-/// را با دستور بالا دوباره بسازی — این تنها تغییر عملیِ این مهاجرت است.
+/// Uses PBKDF2-SHA256 with 210,000 iterations (OWASP recommended).
+/// All password hashes are stored in the database, keyed per user.
 /// </summary>
 public sealed class AdminAuth
 {
@@ -33,24 +18,9 @@ public sealed class AdminAuth
     private const int KeyLength = 32;
     private const int Iterations = 210_000; // توصیه‌ی OWASP برای PBKDF2-SHA256
 
-    private readonly IConfiguration _config;
+    private readonly ILogger<AdminAuth> _log;
 
-    public AdminAuth(IConfiguration config) => _config = config;
-
-    public string? Hash => _config["ADMIN_PASSWORD_HASH"]?.Trim();
-    public string? Secret => _config["ADMIN_SESSION_SECRET"]?.Trim();
-
-    /// <summary>متغیرهایی که تنظیم نشده‌اند — اگر خالی نبود، پنل حتی فرم ورود هم نشان نمی‌دهد.</summary>
-    public List<string> MissingConfig()
-    {
-        var missing = new List<string>();
-        if (string.IsNullOrEmpty(Hash)) missing.Add("ADMIN_PASSWORD_HASH");
-        // راز کوتاه به‌اندازه‌ی نبودنش بد است، پس همان‌جا رد می‌شود.
-        if (string.IsNullOrEmpty(Secret) || Secret!.Length < 32) missing.Add("ADMIN_SESSION_SECRET");
-        return missing;
-    }
-
-    public bool IsConfigured => MissingConfig().Count == 0;
+    public AdminAuth(ILogger<AdminAuth> log) => _log = log;
 
     /* ---------------------------------- رمز ---------------------------------- */
 
@@ -84,71 +54,7 @@ public sealed class AdminAuth
         return CryptographicOperations.FixedTimeEquals(actual, expected);
     }
 
-    /* --------------------------------- نشست --------------------------------- */
-
-    // base64url بدون padding — معادل `Buffer.toString("base64url")` در Node،
-    // که فرمت توکن نسخه‌ی قبلی بود. (.NET 8 هنوز Base64Url داخلی ندارد.)
-    private static string B64(byte[] b) =>
-        Convert.ToBase64String(b).TrimEnd('=').Replace('+', '-').Replace('/', '_');
-
-    private static byte[] FromB64(ReadOnlySpan<char> s)
-    {
-        var t = new string(s).Replace('-', '+').Replace('_', '/');
-        return Convert.FromBase64String(t.PadRight(t.Length + (4 - t.Length % 4) % 4, '='));
-    }
-
-    private static string Sign(string payload, string secret)
-    {
-        using var mac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
-        return B64(mac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
-    }
-
-    /// <summary>
-    /// توکنِ نشست برای یک کاربرِ مشخص.
-    ///
-    /// شناسه‌ی کاربر داخلِ خودِ توکن (و زیر همان امضا) می‌نشیند تا هر صفحه‌ی
-    /// پنل بداند چه کسی وارد شده — بدون این، با چند کاربر هیچ راهی نبود
-    /// بفهمیم نویسنده‌ی یک تغییر کیست، و «تغییر رمزِ من» هم معنایی نداشت.
-    /// </summary>
-    public string MakeToken(string userId)
-    {
-        var exp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + MaxAgeSeconds * 1000L;
-        var payload = $"{exp}|{userId}";
-        return $"{B64(Encoding.UTF8.GetBytes(payload))}.{Sign(payload, Secret!)}";
-    }
-
-    /// <summary>
-    /// شناسه‌ی کاربرِ داخل توکن، یا <c>null</c> اگر توکن معتبر/تازه نباشد.
-    ///
-    /// توکن‌های نسخه‌ی قبلی فقط تاریخِ انقضا داشتند. آن‌ها هم پذیرفته می‌شوند
-    /// و به کاربرِ محیطی نسبت داده می‌شوند — وگرنه با انتشارِ این نسخه هر کسی
-    /// که وارد بود بی‌دلیل بیرون می‌افتاد.
-    /// </summary>
-    public string? ReadToken(string? token)
-    {
-        if (!IsConfigured || string.IsNullOrEmpty(token)) return null;
-        var dot = token.IndexOf('.');
-        if (dot <= 0 || dot == token.Length - 1) return null;
-
-        string payload;
-        try
-        {
-            payload = Encoding.UTF8.GetString(FromB64(token.AsSpan(0, dot)));
-        }
-        catch (FormatException) { return null; }
-
-        var want = Encoding.UTF8.GetBytes(Sign(payload, Secret!));
-        var got = Encoding.UTF8.GetBytes(token[(dot + 1)..]);
-        if (want.Length != got.Length || !CryptographicOperations.FixedTimeEquals(want, got)) return null;
-
-        var bar = payload.IndexOf('|');
-        var expPart = bar < 0 ? payload : payload[..bar];
-        var userId = bar < 0 ? AdminUserStore.EnvUserId : payload[(bar + 1)..];
-
-        if (!long.TryParse(expPart, out var ms) || ms <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
-            return null;
-        return userId.Length > 0 ? userId : AdminUserStore.EnvUserId;
-    }
+    /* --------------------------------- Session --------------------------------- */
 
     public CookieOptions CookieOptions(bool isProduction) => new()
     {

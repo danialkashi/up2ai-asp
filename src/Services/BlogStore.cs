@@ -68,9 +68,9 @@ public sealed class BlogStore
 
     public BlogStore(StorageFactory storage, ILogger<BlogStore> log)
     {
-        _posts = storage.Records<Post>("posts.json", Pg.PgSchema.Posts, p => p.Id,
+        _posts = storage.Records<Post>(Pg.PgSchema.Posts, p => p.Id,
             p => p.Id.Length > 0 && p.Slug.Length > 0 && p.Title.Length > 0, log);
-        _comments = storage.Records<Comment>("comments.json", Pg.PgSchema.Comments, c => c.Id,
+        _comments = storage.Records<Comment>(Pg.PgSchema.Comments, c => c.Id,
             c => c.Id.Length > 0 && c.PostId.Length > 0 && c.Body.Length > 0, log);
     }
 

@@ -266,6 +266,89 @@ public static class MiniMarkdown
         .Replace("\"", "&quot;");
 
     /// <summary>
+    /// Detect if content is HTML (starts with HTML tag) or Markdown.
+    /// </summary>
+    private static bool IsHtml(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return false;
+        var trimmed = content.Trim();
+        return trimmed.StartsWith("<", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Convert body to HTML, detecting whether it's HTML (from CKEditor) or Markdown (from old posts).
+    /// </summary>
+    public static string BodyToHtml(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return "";
+        return IsHtml(body) ? body : ToHtml(body);
+    }
+
+    /// <summary>
+    /// Extract plain text from body, detecting whether it's HTML or Markdown.
+    /// </summary>
+    public static string BodyToPlainText(string? body, int maxLength = 0)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return "";
+        
+        if (IsHtml(body))
+        {
+            // Strip HTML tags from content
+            var sb = new StringBuilder();
+            var inTag = false;
+            var inScript = false;
+            var inStyle = false;
+            
+            for (int i = 0; i < body.Length; i++)
+            {
+                if (body[i] == '<')
+                {
+                    // Check if this is a script or style tag
+                    if (i + 7 < body.Length && body.Substring(i, 7).Equals("<script", StringComparison.OrdinalIgnoreCase))
+                        inScript = true;
+                    if (i + 6 < body.Length && body.Substring(i, 6).Equals("<style", StringComparison.OrdinalIgnoreCase))
+                        inStyle = true;
+                    
+                    inTag = true;
+                }
+                else if (body[i] == '>' && inTag)
+                {
+                    inTag = false;
+                    if (inScript && i + 8 >= body.Length) inScript = false;
+                    if (inStyle && i + 7 >= body.Length) inStyle = false;
+                    
+                    // Add space after tag
+                    if (!inScript && !inStyle && sb.Length > 0 && !char.IsWhiteSpace(sb[sb.Length - 1]))
+                        sb.Append(' ');
+                }
+                else if (!inTag && !inScript && !inStyle && body[i] != '\n' && body[i] != '\r')
+                {
+                    sb.Append(body[i]);
+                }
+                
+                // Check for closing script/style tags
+                if (body[i] == '>' && inTag)
+                {
+                    if (i >= 8 && body.Substring(i - 8, 9).Equals("</script>", StringComparison.OrdinalIgnoreCase))
+                        inScript = false;
+                    if (i >= 7 && body.Substring(i - 7, 8).Equals("</style>", StringComparison.OrdinalIgnoreCase))
+                        inStyle = false;
+                }
+            }
+            
+            var text = sb.ToString().Trim();
+            if (maxLength <= 0 || text.Length <= maxLength) return text;
+            
+            var cut = text[..maxLength];
+            var space = cut.LastIndexOf(' ');
+            if (space > maxLength / 2) cut = cut[..space];
+            return cut.TrimEnd() + "…";
+        }
+        
+        return ToPlainText(body, maxLength);
+    }
+
+    /// <summary>
     /// متنِ ساده‌ی نوشته — برای توضیحِ متا، خلاصه‌ی خودکار و فید RSS.
     /// نشانه‌های مارک‌داون برداشته می‌شوند تا در نتیجه‌ی گوگل ستاره و کروشه
     /// دیده نشود.

@@ -1,0 +1,18 @@
+@{
+    ViewData["Title"] = "Error";
+    Layout = "_Layout";
+}
+
+<div class="alert alert-danger">
+    <h1>@ViewData["Title"]</h1>
+    <p>An error has occurred.</p>
+    
+    @if (System.Diagnostics.Activity.Current?.Id != null)
+    {
+        <p>Request ID: <code>@System.Diagnostics.Activity.Current?.Id</code></p>
+    }
+    else if (Context?.TraceIdentifier != null)
+    {
+        <p>Trace ID: <code>@Context.TraceIdentifier</code></p>
+    }
+</div>

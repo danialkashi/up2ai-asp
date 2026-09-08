@@ -1,0 +1,102 @@
+@using System.Text.Json.Nodes
+@using Up2Ai.Services
+@inject Up2Ai.Services.ContentStore Store
+@inject Up2Ai.Services.BlogStore Blog
+@{
+    // پوسته‌ی پنل مدیریت.
+    //
+    // پنل عمداً روشن است و هرگز نباید در نتایج جست‌وجو بیاید: متای noindex
+    // را لایوت اصلی از روی ViewData["NoIndex"] می‌گذارد، و کنارش مسیر
+    // /admin در robots.txt هم مسدود است.
+    //
+    // ناوبری = یک نوار تب افقی زیر هدر، در همه‌ی عرض‌ها یکسان. (ستون کناری
+    // امتحان شد و کنار گذاشته شد: در پنجره‌های باریک یا با زوم مرورگر اصلاً
+    // ظاهر نمی‌شد و کاربر با دو ناوبری متفاوت روبه‌رو می‌شد.)
+    var c = (ViewData["Content"] is Cv cv) ? cv : new Cv(null);
+    var authed = ViewData["Authed"] as bool? ?? false;
+    ViewData["Title"] = "پنل مدیریت";
+
+    // فهرست بخش‌ها از خودِ شکل محتوا می‌آید، نه از یک لیست دستی — پس بخش
+    // تازه‌ی محتوا خودکار در ناوبری هم پیدا می‌شود.
+    var available = Store.Defaults is JsonObject defs ? defs.Select(p => p.Key).ToList() : new List<string>();
+    var path = (Context.Request.Path.Value ?? "").TrimEnd('/').ToLowerInvariant();
+    var activeTab = ViewData["ActiveTab"] as string ?? "";
+
+    // کدام صفحه‌ی ثابتِ پنل باز است. از روی مسیر حساب می‌شود تا هر صفحه‌ی
+    // تازه لازم نباشد چیزی در ViewData بگذارد و یادش برود.
+    var activeExtra =
+        path.StartsWith("/admin/leads") ? "leads"
+        : path.StartsWith("/admin/posts") ? "posts"
+        : path.StartsWith("/admin/comments") ? "comments"
+        : path.StartsWith("/admin/users") ? "users"
+        : "";
+
+    // شمارشِ نظرهای منتظر تأیید فقط برای کاربرِ واردشده معنی دارد (و فقط
+    // همان‌جا نوار اصلاً رندر می‌شود)، پس بیرون از این شرط خوانده نمی‌شود.
+    var pendingComments = authed ? Blog.PendingCount() : 0;
+    var userLabel = ViewData["UserLabel"] as string ?? "";
+}<!DOCTYPE html>
+<html lang="fa" dir="rtl" class="h-full">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <meta name="color-scheme" content="light" />
+    <link rel="preload" href="~/fonts/Vazirmatn-var.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <title>@(ViewData["Title"] as string ?? "پنل مدیریت")</title>
+    <meta name="robots" content="noindex, nofollow, nocache" />
+</head>
+<body class="h-full">
+
+<div class="min-h-screen bg-surface">
+    <header class="border-b border-hairline bg-ink">
+        <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+            <a href="/admin" class="-my-2 flex min-h-11 items-center gap-3 py-2">
+                <partial name="_Logo" model="@(("light", "h-6 w-auto"))" />
+                <span class="hidden text-[13px] text-on-dark-muted sm:inline">پنل مدیریت</span>
+            </a>
+            <div class="flex items-center gap-2">
+                <a href="/" target="_blank" rel="noopener" class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-[13px] text-on-dark-muted transition-colors hover:text-white">
+                    دیدن سایت
+                    <span aria-hidden="true" class="text-[11px]">↗</span>
+                </a>
+                @if (authed)
+                {
+                    @* با چند کاربره شدنِ پنل، باید معلوم باشد الان چه کسی
+                       وارد است — وگرنه روی یک کامپیوترِ مشترک هیچ راهی برای
+                       فهمیدنش نبود. *@
+                    @if (userLabel.Length > 0)
+                    {
+                        <span class="hidden text-[13px] text-on-dark-muted sm:inline">@userLabel</span>
+                    }
+                    <form method="post" asp-controller="Account" asp-action="Logout" asp-area="Admin">
+                        <button type="submit" class="inline-flex min-h-11 items-center rounded-lg border border-white/12 px-3 text-[13px] text-on-dark transition-colors hover:bg-white/10">خروج</button>
+                    </form>
+                }
+            </div>
+        </div>
+    </header>
+
+    @if (authed)
+    {
+        <nav aria-label="بخش‌های پنل" class="sticky top-0 z-40 border-b border-hairline bg-card">
+            <div class="relative mx-auto max-w-5xl px-4 sm:px-6">
+                <partial name="_AdminNav" model="@(new AdminNavModel(available, activeTab, path == "/admin", activeExtra, pendingComments))" />
+                @* محو‌شدگی لبه‌ی چپ: در عرض‌های کم که نوار اسکرول می‌شود، نشان
+                   می‌دهد ادامه دارد. جایی که اسکرول لازم نیست، روی زمینه‌ی
+                   خالی می‌افتد و دیده نمی‌شود. *@
+                <span aria-hidden="true" class="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-l from-transparent to-card"></span>
+            </div>
+        </nav>
+    }
+
+    @* اسکیپ‌لینکِ لایوت ریشه به #main می‌رود، پس پنل هم باید همین لنگر را
+       داشته باشد وگرنه آن لینک این‌جا به جایی نمی‌رسد. *@
+    <main id="main" class="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+        @RenderBody()
+    </main>
+</div>
+</body>
+</html>
+

@@ -1,0 +1,16 @@
+@{
+    ViewData["Title"] = "تایید خروج";
+}
+
+<form method="post" action="/admin/account/logout" class="mx-auto flex max-w-sm flex-col gap-4 rounded-2xl border border-hairline bg-card p-6 sm:p-8">
+    <h1 class="text-[20px] font-bold text-on-light">تایید خروج</h1>
+    
+    <p class="text-[14px] leading-[1.9] text-on-light-muted">آیا می‌خواهید از پنل خارج شوید؟</p>
+
+    <div class="flex gap-3">
+        <button type="submit" class="flex-1 min-h-11 rounded-xl bg-red-600 px-5 py-2.5 text-[14px] font-medium text-white hover:bg-red-700 transition-colors">بله، خروج</button>
+        <a href="/admin" class="flex-1 min-h-11 rounded-xl border border-hairline bg-surface px-5 py-2.5 text-[14px] font-medium text-on-light hover:bg-surface-hover transition-colors flex items-center justify-center">لغو</a>
+    </div>
+    
+    @Html.AntiForgeryToken()
+</form>

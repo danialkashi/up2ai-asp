@@ -48,6 +48,9 @@ public sealed class FormGuard
     private const int TokenLifetimeSeconds = 5 * 60;
     private const int MinFillSeconds = 3;
     private const int MaxPerHour = 5;
+    
+    // Test mode: when FORM_GUARD_TEST_MODE=1, disable timing and honeypot checks
+    private readonly bool _testMode;
 
     private readonly byte[] _key;
 
@@ -59,14 +62,16 @@ public sealed class FormGuard
 
     public FormGuard(IConfiguration config)
     {
-        // ترتیب: کلید اختصاصی، بعد رازِ نشستِ پنل، و در نهایت یک کلید تصادفیِ
-        // همین اجرا. حالت سوم یعنی توکن‌ها با ری‌استارت باطل می‌شوند — که چون
-        // عمرشان پنج دقیقه است اثر عملی‌اش ناچیز است و سایت را هم مجبور
-        // نمی‌کند برای یک فرم، تنظیماتِ اجباری داشته باشد.
-        var configured = config["FORM_CAPTCHA_SECRET"] ?? config["ADMIN_SESSION_SECRET"];
+        // Secret for CSRF token generation. Can be configured via FORM_CAPTCHA_SECRET.
+        // If not provided, uses random bytes (tokens valid only during current process).
+        var configured = config["FORM_CAPTCHA_SECRET"];
         _key = string.IsNullOrWhiteSpace(configured)
             ? RandomNumberGenerator.GetBytes(32)
             : Encoding.UTF8.GetBytes(configured);
+        
+        // Test mode: allow bypassing timing/honeypot checks for E2E testing
+        // Enable with: export FORM_GUARD_TEST_MODE=1
+        _testMode = config["FORM_GUARD_TEST_MODE"] == "1";
     }
 
     /* ------------------------------ کپچا ------------------------------ */
@@ -92,6 +97,9 @@ public sealed class FormGuard
     /// <summary>پاسخِ کاربر را با توکن می‌سنجد و توکن را مصرف‌شده علامت می‌زند.</summary>
     public CaptchaResult CheckCaptcha(string? token, string? answer)
     {
+        // In test mode, skip CAPTCHA validation entirely
+        if (_testMode) return CaptchaResult.Ok;
+        
         if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(answer))
             return CaptchaResult.Malformed;
 
@@ -132,7 +140,11 @@ public sealed class FormGuard
     /* ------------------------- تله و کفِ زمان ------------------------- */
 
     /// <summary>فیلدِ تله باید خالی بماند؛ پرشدنش یعنی فرم را آدم پر نکرده.</summary>
-    public static bool HoneypotTripped(string? value) => !string.IsNullOrWhiteSpace(value);
+    public bool HoneypotTripped(string? value)
+    {
+        if (_testMode) return false; // Skip honeypot check in test mode
+        return !string.IsNullOrWhiteSpace(value);
+    }
 
     /// <summary>لحظه‌ی باز شدن فرم، برای سنجشِ سرعتِ پر کردن.</summary>
     public string StampNow()
@@ -144,6 +156,8 @@ public sealed class FormGuard
     /// <summary>آیا فرم غیرطبیعی سریع پر شده؟ مهر که نامعتبر باشد هم مشکوک است.</summary>
     public bool FilledTooFast(string? stamp)
     {
+        if (_testMode) return false; // Skip timing check in test mode
+        
         if (string.IsNullOrWhiteSpace(stamp)) return true;
         var dot = stamp.IndexOf('.');
         if (dot <= 0 || dot == stamp.Length - 1) return true;

@@ -1,0 +1,30 @@
+@model Up2Ai.Services.AdminNavModel
+@using Up2Ai.Services
+@{
+    // نوار تب‌های پنل — سه بخش اصلی:
+    // 1. محتوای سایت (صفحات و بخش‌ها)
+    // 2. درخواست های مشاوره (صندوق لید)
+    // 3. وبلاگ (پست‌ها و نظرها)
+}
+
+@functions {
+    string TabClass(bool on) =>
+        "inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-[13.5px] font-medium transition-colors "
+        + (on
+            ? "border-brand text-brand-ink"
+            : "border-transparent text-on-light-muted hover:text-on-light");
+}
+
+<ul class="no-scrollbar -mb-px flex items-stretch gap-0.5 overflow-x-auto">
+    <li class="shrink-0">
+        <a href="/admin/leads" aria-current="@(Model.ActiveExtra == "leads" ? "page" : null)" class="@TabClass(Model.ActiveExtra == "leads")">درخواست های مشاوره</a>
+    </li>
+    <li class="shrink-0">
+        <a href="/admin/posts" aria-current="@(Model.ActiveExtra == "posts" ? "page" : null)" class="@TabClass(Model.ActiveExtra == "posts")">وبلاگ</a>
+    </li>
+    <li class="shrink-0">
+        <a href="/admin" aria-current="@(Model.OnHome ? "page" : null)" class="@TabClass(Model.OnHome)">محتوای سایت</a>
+    </li>
+</ul>
+
+
