@@ -59,6 +59,16 @@ builder.Services.AddAuthentication("Cookies")
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
     });
 builder.Services.AddAuthorization();
+// Session for TempData (form validation, success messages)
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(12);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+});
 builder.Services.AddSingleton<ContentStore>();
 builder.Services.AddSingleton<LeadStore>();
 builder.Services.AddSingleton<BlogStore>();
@@ -167,6 +177,7 @@ app.UseStaticFiles(new StaticFileOptions
 
 app.UseRouting();
 app.UseAuthentication();
+app.UseSession();
 app.UsePasswordVersionValidation();
 app.UseAuthorization();
 app.UseAntiforgery();
