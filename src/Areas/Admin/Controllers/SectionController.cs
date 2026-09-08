@@ -113,7 +113,13 @@ public class SectionController : Controller
             }
 
             // Save - need to merge into full content object
-            var current = _store.Get() as JsonObject ?? new JsonObject();
+            var current = _store.Get() as JsonObject;
+            if (current is null)
+            {
+                // If no content exists, start with defaults
+                current = (JsonObject)defaults.DeepClone();
+            }
+            
             current[section] = working;
             _store.Save(current);
 
