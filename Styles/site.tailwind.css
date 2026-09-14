@@ -11,20 +11,27 @@
 
 @import "tailwindcss";
 
-/* Mobile menu visibility control - must be before @source for Tailwind to process */
-#mobile-menu,
-#pv-overlay {
-  display: none;
-}
-
-body.pv-menu-open #mobile-menu,
-body.pv-menu-open #pv-overlay {
-  display: block;
-}
-
 /* جایی که کلاس‌ها از آن خوانده می‌شوند */
 @source "../Pages/**/*.cshtml";
 @source "../wwwroot/js/*.js";
+
+/* ---------- Mobile menu visibility control ----------
+   Menu and overlay are hidden by default (outside pv-menu-open state).
+   JavaScript manages the pv-menu-open class on body; CSS handles display.
+   
+   Using !important to ensure these rules take precedence over any
+   utility classes or other CSS that might affect display. */
+@layer base {
+  #mobile-menu,
+  #pv-overlay {
+    display: none !important;
+  }
+
+  body.pv-menu-open #mobile-menu,
+  body.pv-menu-open #pv-overlay {
+    display: block !important;
+  }
+}
 
 /* ---------- Vazirmatn (self-hosted، variable، subset فارسی + لاتین) ----------
    یک فایل ۵۷ کیلوبایتی که تمام وزن‌های ۴۰۰ تا ۷۰۰ را پوشش می‌دهد —
