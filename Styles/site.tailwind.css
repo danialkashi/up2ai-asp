@@ -11,6 +11,17 @@
 
 @import "tailwindcss";
 
+/* Mobile menu visibility control - must be before @source for Tailwind to process */
+#mobile-menu,
+#pv-overlay {
+  display: none;
+}
+
+body.pv-menu-open #mobile-menu,
+body.pv-menu-open #pv-overlay {
+  display: block;
+}
+
 /* جایی که کلاس‌ها از آن خوانده می‌شوند */
 @source "../Pages/**/*.cshtml";
 @source "../wwwroot/js/*.js";
@@ -284,17 +295,4 @@ body {
   [data-demo="in"] {
     animation: none;
   }
-}
-
-/* ---------- Mobile menu visibility control ----------
-   Menu and overlay are hidden by default and shown when body has pv-menu-open.
-   JavaScript controls the class; CSS handles the display. */
-#mobile-menu,
-#pv-overlay {
-  display: none;
-}
-
-body.pv-menu-open #mobile-menu,
-body.pv-menu-open #pv-overlay {
-  display: block;
 }

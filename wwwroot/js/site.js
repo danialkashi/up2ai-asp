@@ -33,10 +33,11 @@
   var btn = document.querySelector('button[aria-controls="mobile-menu"]');
   var header = document.querySelector("header");
   if (btn && header) {
-    // Inject CSS to hide menu/overlay by default; show when body has pv-menu-open
-    var style = document.createElement('style');
-    style.textContent = '#mobile-menu,#pv-overlay{display:none!important}body.pv-menu-open #mobile-menu,body.pv-menu-open #pv-overlay{display:block!important}';
-    document.head.appendChild(style);
+    // CSS rule for menu visibility is defined in Styles/site.tailwind.css
+    // Injected here as fallback until Tailwind compilation is fixed
+    var s = document.createElement('style');
+    s.textContent = '#mobile-menu,#pv-overlay{display:none}body.pv-menu-open #mobile-menu,body.pv-menu-open #pv-overlay{display:block}';
+    document.head.appendChild(s);
 
     var navLinks = header.querySelectorAll('nav a[href^="#"]');
     var ctaLink = header.querySelector('a[href="#contact"]:not(nav a)');
