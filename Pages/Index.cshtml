@@ -1,0 +1,30 @@
+@page
+@model IndexModel
+@{
+    var c = Model.C;
+    Layout = "_Layout";
+}
+
+<partial name="_Header" />
+
+<main id="main" class="flex-1">
+    <partial name="_Hero" />
+    <partial name="_AgentDemo" />
+    <partial name="_Services" />
+    <partial name="_Process" />
+    <partial name="_AudienceFit" />
+    <partial name="_About" />
+    <partial name="_Faq" />
+    <partial name="_Contact" model="Model" />
+</main>
+
+<partial name="_Footer" />
+<partial name="_FloatingCta" />
+
+@section Scripts {
+    @* داده‌ی سناریوهای دمو برای جاوااسکریپت. در نسخه‌ی قبلی این داده داخل
+       باندل ری‌اکت بود؛ این‌جا سرور همان محتوای زنده را کنار صفحه می‌گذارد،
+       پس ویرایش از پنل بلافاصله در دمو هم دیده می‌شود. *@
+    <script type="application/json" id="demo-data">@Html.Raw(Model.DemoJson)</script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+}

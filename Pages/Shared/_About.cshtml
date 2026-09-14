@@ -1,0 +1,26 @@
+@{
+    var c = (Cv)ViewData["Content"]!;
+    var about = c["copy"]["about"];
+    var beliefs = c["about"]["beliefs"];
+    var facts = c["about"]["facts"];
+}
+@* بدون انیمیشن ورود. اعداد واقعی (`facts`) به‌صورت پیش‌فرض خالی‌اند و کل
+   بلوک `<dl>` وقتی خالی است اصلاً رندر نمی‌شود — دقیقاً مثل نسخه‌ی ری‌اکت. *@
+<section id="about" class="border-b border-hairline bg-surface">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24 lg:py-28">
+        <div class="grid gap-10 lg:grid-cols-[1fr_1.5fr] lg:gap-16">
+            <div>
+                <span class="inline-flex items-center rounded-full border border-brand/20 bg-brand/[0.06] px-3 py-1 text-[13px] font-medium text-brand-ink">@about["eyebrow"]</span>
+                <h2 class="mt-5 text-[1.75rem] font-bold leading-[1.45] tracking-tight text-on-light sm:text-[2.25rem]">@about["heading"]</h2>
+                <p class="mt-4 text-[15px] leading-[2] text-on-light-muted sm:text-[16px]">@about["lead"]</p>
+                @if (facts.Count > 0)
+                {
+                    <dl class="mt-8 flex flex-wrap gap-x-10 gap-y-5">@foreach (var f in facts){<div><dt class="text-[13px] text-on-light-muted">@f["label"]</dt><dd class="mt-0.5 text-[20px] font-bold text-on-light">@f["value"]</dd></div>}</dl>
+                }
+                @* نماد لوگو + خط جداکننده — فقط از lg به بالا دیده می‌شود *@
+                <div aria-hidden="true" class="mt-10 hidden items-center gap-3 lg:flex"><svg viewBox="0 0 415 195" class="h-6 w-auto opacity-60" aria-hidden="true" focusable="false"><use href="#u2-mark" x="0" y="0" width="415" height="195" fill="url(#u2-grad)"></use></svg><span class="h-px flex-1 bg-hairline"></span></div>
+            </div>
+            <ul class="grid gap-4 sm:grid-cols-2">@foreach (var b in beliefs){<li class="rounded-2xl border border-hairline bg-card p-6"><h3 class="text-[16px] font-bold text-on-light">@b["title"]</h3><p class="mt-2.5 text-[14px] leading-[1.95] text-on-light-muted">@b["body"]</p></li>}</ul>
+        </div>
+    </div>
+</section>

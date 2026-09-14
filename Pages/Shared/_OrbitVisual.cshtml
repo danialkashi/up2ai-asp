@@ -1,0 +1,39 @@
+@{
+    var c = (Cv)ViewData["Content"]!;
+
+    // المان بصری هیرو: کانال‌های کسب‌وکار که دور هسته‌ی UP2AI می‌چرخند.
+    // چرخش با CSS keyframes (کلاس `orbit-spin`) انجام می‌شود، نه جاوااسکریپت.
+    var orbit = c["copy"]["orbit"];
+    var ch = orbit["channels"];
+
+    // زاویه‌ها ثابت‌اند و مختصات درصدی از روی همان‌ها حساب شده‌اند؛ عیناً همان
+    // اعدادی که نسخه‌ی React تولید می‌کرد (زاویه‌ها بخشی از طراحی‌اند).
+    // بیرونی: ۲۰°، ۱۴۰°، ۲۶۰° با شعاع ۴۴ — داخلی: ۸۰°، ۲۰۰°، ۳۲۰° با شعاع ۲۸.
+
+    // متن جایگزین از روی همان نام‌های کانال ساخته می‌شود تا هرگز با محتوا
+    // ناهماهنگ نماند — معادل `fill(orbit.aria, …)` در نسخه‌ی قبلی.
+    var channelNames = string.Join("، ", new[]
+    {
+        ch["instagram"].S,
+        ch["telegram"].S,
+        ch["whatsapp"].S,
+        ch["website"].S,
+        ch["email"].S,
+        ch["crm"].S,
+    });
+    var orbitAria = orbit["aria"].S
+        .Replace("{channels}", channelNames)
+        .Replace("{name}", c["site"]["name"].S);
+}
+<div class="relative mx-auto aspect-square w-full max-w-[300px] sm:max-w-[380px] lg:max-w-[460px]" role="img" aria-label="@orbitAria">
+    @* هاله‌ی پس‌زمینه *@
+    <div class="pointer-events-none absolute inset-[10%] rounded-full opacity-80 blur-3xl" style="background:radial-gradient(circle at 50% 50%, rgba(99,102,241,0.38), rgba(168,85,247,0.15) 45%, transparent 70%)" aria-hidden="true"></div>
+    @* حلقه‌های راهنما *@
+    <svg viewBox="0 0 200 200" class="absolute inset-0 h-full w-full" aria-hidden="true"><circle cx="100" cy="100" r="88" fill="none" stroke="rgba(228,228,231,0.11)" stroke-width="0.9" stroke-dasharray="3 5"></circle><circle cx="100" cy="100" r="56" fill="none" stroke="rgba(228,228,231,0.14)" stroke-width="0.9" stroke-dasharray="2 4"></circle><circle cx="100" cy="100" r="30" fill="none" stroke="rgba(129,140,248,0.25)" stroke-width="0.9"></circle></svg>
+    @* مدار بیرونی *@
+    <div class="orbit-spin absolute inset-0" style="animation-duration:46s;animation-direction:normal"><div class="absolute" style="left:65.04888630632942%;top:8.653524685420031%;transform:translate(-50%, -50%)"><div class="orbit-spin" style="animation-duration:46s;animation-direction:reverse"><div class="grid place-items-center rounded-2xl border border-white/12 bg-ink-2/85 text-on-dark/90 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.95)] backdrop-blur-sm h-11 w-11 sm:h-14 sm:w-14" title="@ch["instagram"]" data-anim="zoom" style="--pv-from:0.5;animation-delay:280ms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-5 w-5 sm:h-6 sm:w-6"><rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"></circle></svg></div></div></div><div class="absolute" style="left:78.28265482620773%;top:83.70595549723502%;transform:translate(-50%, -50%)"><div class="orbit-spin" style="animation-duration:46s;animation-direction:reverse"><div class="grid place-items-center rounded-2xl border border-white/12 bg-ink-2/85 text-on-dark/90 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.95)] backdrop-blur-sm h-11 w-11 sm:h-14 sm:w-14" title="@ch["telegram"]" data-anim="zoom" style="--pv-from:0.5;animation-delay:370ms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-5 w-5 sm:h-6 sm:w-6"><path d="M21 4.5 2.9 11.3c-.7.3-.7 1.3.1 1.5l4.6 1.4 1.8 5c.2.6 1 .8 1.4.3l2.4-2.6 4.6 3.4c.6.4 1.4.1 1.6-.6L21.8 5.6c.2-.8-.6-1.4-1.3-1.1Z"></path><path d="m7.6 14.2 10.6-7.4-6.4 8.5"></path></svg></div></div></div><div class="absolute" style="left:6.668458867462846%;top:57.64051981734494%;transform:translate(-50%, -50%)"><div class="orbit-spin" style="animation-duration:46s;animation-direction:reverse"><div class="grid place-items-center rounded-2xl border border-white/12 bg-ink-2/85 text-on-dark/90 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.95)] backdrop-blur-sm h-11 w-11 sm:h-14 sm:w-14" title="@ch["whatsapp"]" data-anim="zoom" style="--pv-from:0.5;animation-delay:460ms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-5 w-5 sm:h-6 sm:w-6"><path d="M3.5 20.5 4.8 16A8.2 8.2 0 1 1 8 19.2l-4.5 1.3Z"></path><path d="M9 8.6c.3-.1.6 0 .8.3l.7 1.2c.2.3.1.6-.1.8l-.5.5c-.2.2-.2.4-.1.6.4.8 1.2 1.6 2 2 .2.1.4 0 .6-.1l.5-.5c.2-.2.5-.3.8-.1l1.2.7c.3.2.4.5.3.8-.2.7-.9 1.2-1.7 1.2-2.6 0-5.6-3-5.6-5.6 0-.8.4-1.5 1.1-1.8Z"></path></svg></div></div></div></div>
+    @* مدار داخلی (خلاف جهت) *@
+    <div class="orbit-spin absolute inset-0" style="animation-duration:34s;animation-direction:reverse"><div class="absolute" style="left:77.57461708434182%;top:45.13785102532595%;transform:translate(-50%, -50%)"><div class="orbit-spin" style="animation-duration:34s;animation-direction:normal"><div class="grid place-items-center rounded-2xl border border-white/12 bg-ink-2/85 text-on-dark/90 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.95)] backdrop-blur-sm h-10 w-10 sm:h-12 sm:w-12" title="@ch["website"]" data-anim="zoom" style="--pv-from:0.5;animation-delay:420ms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] sm:h-5 sm:w-5"><circle cx="12" cy="12" r="9"></circle><path d="M3.2 9.5h17.6M3.2 14.5h17.6"></path><path d="M12 3c2.4 2.5 3.6 5.5 3.6 9S14.4 18.5 12 21c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3Z"></path></svg></div></div></div><div class="absolute" style="left:40.42343598688127%;top:76.31139338200543%;transform:translate(-50%, -50%)"><div class="orbit-spin" style="animation-duration:34s;animation-direction:normal"><div class="grid place-items-center rounded-2xl border border-white/12 bg-ink-2/85 text-on-dark/90 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.95)] backdrop-blur-sm h-10 w-10 sm:h-12 sm:w-12" title="@ch["email"]" data-anim="zoom" style="--pv-from:0.5;animation-delay:510ms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] sm:h-5 sm:w-5"><rect x="2.8" y="4.8" width="18.4" height="14.4" rx="3"></rect><path d="m4.5 8.2 6.4 4.5c.7.5 1.6.5 2.2 0l6.4-4.5"></path></svg></div></div></div><div class="absolute" style="left:32.00194692877689%;top:28.550755592668622%;transform:translate(-50%, -50%)"><div class="orbit-spin" style="animation-duration:34s;animation-direction:normal"><div class="grid place-items-center rounded-2xl border border-white/12 bg-ink-2/85 text-on-dark/90 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.95)] backdrop-blur-sm h-10 w-10 sm:h-12 sm:w-12" title="@ch["crm"]" data-anim="zoom" style="--pv-from:0.5;animation-delay:600ms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] sm:h-5 sm:w-5"><ellipse cx="12" cy="6" rx="7.5" ry="3"></ellipse><path d="M4.5 6v12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6"></path><path d="M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3"></path></svg></div></div></div></div>
+    @* هسته‌ی مرکزی *@
+    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" data-anim="zoom" style="--pv-from:0.7;animation-duration:.6s;animation-delay:100ms"><div class="core-pulse relative grid h-[76px] w-[76px] place-items-center rounded-full border border-white/12 bg-ink-2/70 backdrop-blur-sm sm:h-[92px] sm:w-[92px]"><svg viewBox="0 0 415 195" class="h-7 w-auto sm:h-8" aria-hidden="true" focusable="false"><use href="#u2-mark" x="0" y="0" width="415" height="195" fill="url(#u2-grad)"></use></svg></div></div>
+</div>

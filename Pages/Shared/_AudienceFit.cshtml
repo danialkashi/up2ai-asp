@@ -1,0 +1,30 @@
+@{
+    var c = (Cv)ViewData["Content"]!;
+    var fit = c["copy"]["fit"];
+    var fits = c["audience"]["fits"];
+    var misfits = c["audience"]["misfits"];
+}
+@* دو ستون عمداً هم‌وزن نیستند: ستونِ «جواب می‌دهد» کارت‌های روشن دارد و
+   ستونِ «جواب نمی‌دهد» یک پنل جمع‌وجورِ کم‌رنگ است. بدون انیمیشن ورود. *@
+<section id="fit" class="border-b border-hairline bg-surface-2">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24 lg:py-28">
+        <div class="max-w-2xl">
+            <span class="inline-flex items-center rounded-full border border-brand/20 bg-brand/[0.06] px-3 py-1 text-[13px] font-medium text-brand-ink">@fit["eyebrow"]</span>
+            <h2 class="mt-5 text-[1.75rem] font-bold leading-[1.45] tracking-tight text-on-light sm:text-[2.25rem]">@fit["heading"]</h2>
+            <p class="mt-4 text-[15px] leading-[2] text-on-light-muted sm:text-[16px]">@fit["lead"]</p>
+        </div>
+        <div class="mt-12 grid gap-10 lg:grid-cols-[1.45fr_1fr] lg:gap-14">
+            @* ستون «جواب می‌دهد» — کارت‌های مستقل، دو ستونه از sm به بالا *@
+            <div>
+                <h3 class="text-[15px] font-bold text-on-light">@fit["fitsHeading"]</h3>
+                <ul class="mt-5 grid gap-4 sm:grid-cols-2">@foreach (var f in fits){<li class="rounded-2xl border border-hairline bg-card p-5"><div class="flex items-start gap-3"><span class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand-ink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="size-3.5"><path d="m4.5 12.5 4.5 4.5L19.5 6.5"></path></svg></span><div><h4 class="text-[15px] font-bold leading-[1.7] text-on-light">@f["title"]</h4><p class="mt-1.5 text-[13.5px] leading-[1.95] text-on-light-muted">@f["body"]</p></div></div></li>}</ul>
+            </div>
+            @* ستون «جواب نمی‌دهد» — یک پنل خط‌چین، بدون کارت، تک‌ستونه *@
+            <div>
+                <h3 class="text-[15px] font-bold text-on-light">@fit["misfitsHeading"]</h3>
+                <ul class="mt-5 space-y-4 rounded-2xl border border-dashed border-hairline bg-surface p-6">@foreach (var m in misfits){<li class="flex items-start gap-3"><span class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-on-light/[0.07] text-on-light-muted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="size-3.5"><path d="M6 12h12"></path></svg></span><div><h4 class="text-[14.5px] font-bold leading-[1.7] text-on-light">@m["title"]</h4><p class="mt-1.5 text-[13.5px] leading-[1.95] text-on-light-muted">@m["body"]</p></div></li>}</ul>
+                <p class="mt-4 text-[13px] leading-[1.9] text-on-light-muted">@fit["note"]</p>
+            </div>
+        </div>
+    </div>
+</section>

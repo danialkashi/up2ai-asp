@@ -1,0 +1,45 @@
+@{
+    var c = (Cv)ViewData["Content"]!;
+    var copy = c["copy"]["process"];
+    var steps = c["process"]["steps"];
+    var i = 0;
+}
+@functions {
+    // رقم لاتین → فارسی، تا با بقیه‌ی متن هم‌خوان باشد
+    static string ToFa(int n)
+    {
+        var chars = n.ToString(System.Globalization.CultureInfo.InvariantCulture).ToCharArray();
+        for (var k = 0; k < chars.Length; k++)
+        {
+            if (chars[k] >= '0' && chars[k] <= '9') { chars[k] = "۰۱۲۳۴۵۶۷۸۹"[chars[k] - '0']; }
+        }
+        return new string(chars);
+    }
+}
+@* بخش فرآیند کار.
+
+   شماره‌ها این‌جا معنا دارند (توالی واقعی‌اند) — برخلاف بخش خدمات که
+   گزینه‌های موازی است و عمداً شماره ندارد. شماره‌ها از محتوا نمی‌آیند،
+   از ترتیب آیتم‌ها ساخته می‌شوند.
+
+   روی دسکتاپ یک خط باریک پشت شماره‌ها می‌گذرد تا پیوستگی مراحل دیده شود.
+   بدون هیچ انیمیشنی — سقف حرکت سایت با هیرو و دمو پر شده است. *@
+<section id="process" class="border-b border-hairline bg-surface">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24 lg:py-28">
+        <div class="max-w-2xl">
+            <span class="inline-flex items-center rounded-full border border-brand/20 bg-brand/[0.06] px-3 py-1 text-[13px] font-medium text-brand-ink">@copy["eyebrow"]</span>
+            <h2 class="mt-5 text-[1.75rem] font-bold leading-[1.45] tracking-tight text-on-light sm:text-[2.25rem]">@copy["heading"]</h2>
+            <p class="mt-4 text-[15px] leading-[2] text-on-light-muted sm:text-[16px]">@copy["lead"]</p>
+        </div>
+
+        <ol class="relative mt-12 grid gap-6 sm:mt-14 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+            @* خط پیوستگی مراحل — فقط دسکتاپ، پشت شماره‌ها *@
+            <span aria-hidden="true" class="absolute inset-x-0 top-6 hidden h-px bg-hairline lg:block"></span>
+            @foreach (var step in steps)
+            {
+                i++;
+                <li class="relative flex flex-col"><span aria-hidden="true" class="grid h-12 w-12 place-items-center rounded-full border border-hairline bg-card text-[17px] font-bold text-brand-ink">@ToFa(i)</span><h3 class="mt-5 text-[17px] font-bold text-on-light">@step["title"]</h3><p class="mt-2.5 text-[14px] leading-[1.95] text-on-light-muted">@step["body"]</p><p class="mt-auto pt-5 text-[13px] font-medium text-brand-ink">@step["meta"]</p></li>
+            }
+        </ol>
+    </div>
+</section>
