@@ -50,5 +50,5 @@ public abstract class AdminPageModel : PageModel
     ///     var guard = RequireAuth(); if (guard is not null) return guard;
     /// </summary>
     protected IActionResult? RequireAuth() =>
-        Authed ? null : RedirectToPage("/Admin/Login");
+        Authed ? null : RedirectToPage("/admin/account/login");
 }

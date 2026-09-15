@@ -1,0 +1,25 @@
+@model List<string>
+@{
+    if (Model == null || Model.Count == 0) return;
+}
+
+<div class="mx-auto max-w-sm rounded-2xl border border-orange-200 bg-orange-50 p-6">
+    <div class="flex gap-3">
+        <div class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange-200">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-3 w-3 text-orange-600">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 8v4"></path>
+                <path d="M12 16h.01"></path>
+            </svg>
+        </div>
+        <div>
+            <h3 class="text-[14px] font-medium text-orange-900">نیاز به پیکربندی</h3>
+            <ul class="mt-2 space-y-1 text-[13px] text-orange-800">
+                @foreach (var item in Model)
+                {
+                    <li>• @item</li>
+                }
+            </ul>
+        </div>
+    </div>
+</div>

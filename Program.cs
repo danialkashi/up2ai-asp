@@ -40,9 +40,16 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
 }
 
+// Custom 404 handling: reexecute to /404 page when a route is not found
+app.UseStatusCodePagesWithReExecute("/404", "?statusCode={0}");
+
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAntiforgery();
+
+// Redirect old admin login route to the canonical route
+app.MapGet("/admin/login", () => Results.Redirect("/admin/account/login", permanent: true));
+
 app.MapRazorPages();
 
 app.Run();

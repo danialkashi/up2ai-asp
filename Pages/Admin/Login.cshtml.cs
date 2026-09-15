@@ -71,7 +71,7 @@ public class LoginModel : AdminPageModel
     public IActionResult OnPostLogout()
     {
         Response.Cookies.Delete(AdminAuth.CookieName, new CookieOptions { Path = AdminAuth.CookiePath });
-        return RedirectToPage("/Admin/Login");
+        return RedirectToPage("/admin/account/login");
     }
 
     private void GenerateCaptcha()

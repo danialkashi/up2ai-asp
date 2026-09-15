@@ -1,0 +1,59 @@
+@page "/404"
+@model NotFoundModel
+@{
+    ViewData["Title"] = "صفحه پیدا نشد";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>صفحه پیدا نشد</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+    <style>
+        body { background: var(--color-surface); color: var(--color-on-light); }
+        .not-found-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+        .not-found-content { max-width: 42rem; text-align: center; }
+        .not-found-code { font-size: 8rem; font-weight: bold; line-height: 1; color: rgba(99, 102, 241, 0.1); margin-bottom: 2rem; }
+        .not-found-title { font-size: 2rem; font-weight: bold; line-height: 1.4; color: var(--color-on-light); margin-bottom: 1rem; }
+        .not-found-desc { margin-bottom: 2rem; max-width: 28rem; margin-left: auto; margin-right: auto; font-size: 0.9rem; line-height: 1.8; color: var(--color-on-light-muted); }
+        .not-found-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.75rem; background: linear-gradient(to left, var(--color-brand), var(--color-brand-2)); padding: 0.75rem 1.5rem; font-size: 0.9rem; font-weight: 500; color: white; text-decoration: none; transition: transform 0.2s; }
+        .not-found-button:hover { transform: translateY(-0.125rem); }
+        .not-found-button svg { width: 1.125rem; height: 1.125rem; }
+        .not-found-info { margin-top: 3rem; border-radius: 0.75rem; border: 1px solid rgba(128, 128, 128, 0.3); background-color: rgba(255, 255, 255, 0.2); padding: 1.5rem; }
+        .not-found-info p { font-size: 0.75rem; color: var(--color-on-light-muted); }
+        .not-found-info code { font-family: monospace; font-size: 0.6875rem; }
+        @@media (min-width: 640px) {
+            .not-found-code { font-size: 12rem; }
+            .not-found-title { font-size: 2.5rem; }
+            .not-found-desc { font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <section class="not-found-container">
+        <div class="not-found-content">
+            <div class="not-found-code">404</div>
+            <h1 class="not-found-title">صفحه پیدا نشد</h1>
+            <p class="not-found-desc">
+                متأسفانه صفحه‌ای که به دنبال آن هستید وجود ندارد یا منتقل شده است.
+            </p>
+            <a href="/" class="not-found-button">
+                بازگشت به صفحه اصلی
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M19 12H5"></path>
+                    <path d="m11 6 6 6-6 6"></path>
+                </svg>
+            </a>
+            @if (!string.IsNullOrEmpty(Model.RequestPath))
+            {
+                <div class="not-found-info">
+                    <p>درخواست: <code dir="ltr">@Model.RequestPath</code></p>
+                </div>
+            }
+        </div>
+    </section>
+</body>
+</html>
