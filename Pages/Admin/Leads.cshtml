@@ -64,12 +64,14 @@
 
                     <div class="mt-4 flex items-center gap-2">
                         <form method="post" asp-page-handler="Toggle">
+                            @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@lead.Id" />
                             <input type="hidden" name="handled" value="@((!lead.Handled).ToString().ToLowerInvariant())" />
                             <input type="hidden" name="filter" value="@Model.Filter" />
                             <button type="submit" class="inline-flex min-h-11 items-center rounded-lg border border-hairline px-3 text-[13px] font-medium text-on-light transition-colors hover:border-brand/35">@(lead.Handled ? "برداشتن علامت پیگیری" : "پیگیری شد")</button>
                         </form>
                         <form method="post" asp-page-handler="Delete">
+                            @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@lead.Id" />
                             <input type="hidden" name="filter" value="@Model.Filter" />
                             <button type="submit" class="inline-flex min-h-11 items-center rounded-lg px-3 text-[13px] text-on-light-muted transition-colors hover:text-red-700">حذف</button>

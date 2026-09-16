@@ -11,6 +11,9 @@ else
     <form method="post" class="mx-auto flex max-w-sm flex-col gap-4 rounded-2xl border border-hairline bg-card p-6 sm:p-8">
         <h1 class="text-[20px] font-bold text-on-light">ورود به پنل</h1>
 
+        @* CSRF protection token - required for POST requests *@
+        @Html.AntiForgeryToken()
+
         @* فیلد پنهانِ نام کاربری: پنل فقط یک حساب دارد، ولی بدون این فیلد
            مرورگر و رمزدان هشدار دسترس‌پذیری می‌دهند و رمز را درست ذخیره
            نمی‌کنند. *@

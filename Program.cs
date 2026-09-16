@@ -38,10 +38,47 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
+    
+    // HSTS: tell browsers to always use HTTPS for this domain
+    app.UseHsts();
 }
+
+// Security headers for all responses
+app.Use(async (context, next) =>
+{
+    // Prevent clickjacking: only allow framing in same origin
+    context.Response.Headers["X-Frame-Options"] = "SAMEORIGIN";
+    
+    // Prevent MIME sniffing: browsers must respect Content-Type header
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    
+    // Referrer-Policy: send referrer only for same-origin requests
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    
+    // Content Security Policy: restrict resource loading to mitigate XSS
+    // Allow inline styles for admin panel Tailwind, but not inline scripts
+    context.Response.Headers["Content-Security-Policy"] = 
+        "default-src 'self'; " +
+        "script-src 'self'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data: https:; " +
+        "font-src 'self' data:; " +
+        "connect-src 'self'; " +
+        "frame-ancestors 'self'; " +
+        "base-uri 'self'; " +
+        "form-action 'self'";
+    
+    await next();
+});
 
 // Custom 404 handling: reexecute to /404 page when a route is not found
 app.UseStatusCodePagesWithReExecute("/404", "?statusCode={0}");
+
+// Redirect HTTP to HTTPS in production
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseStaticFiles();
 app.UseRouting();

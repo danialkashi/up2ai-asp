@@ -55,19 +55,38 @@ public sealed class LeadStore
 
     private List<Lead> ReadAllUnlocked()
     {
+        // If file doesn't exist, that's normal on first run — return empty list
+        if (!File.Exists(File_)) return new List<Lead>();
+
         try
         {
-            if (!File.Exists(File_)) return new List<Lead>();
             var raw = File.ReadAllText(File_);
             var parsed = JsonSerializer.Deserialize<List<Lead>>(raw);
-            if (parsed is null) return new List<Lead>();
-            // هر رکورد جدا اعتبارسنجی می‌شود — یک خط خراب نباید کل فایل را بی‌اثر کند.
-            return parsed.Where(IsValid).ToList();
+            if (parsed is null)
+            {
+                // File exists but deserializer returned null — this indicates a JSON structure issue
+                _log.LogError("[leads] Failed to deserialize leads.json: deserialization returned null");
+                throw new InvalidOperationException("Invalid leads data structure");
+            }
+            // Each record is validated separately — a malformed record shouldn't affect others
+            return parsed.Where(l =>
+            {
+                if (IsValid(l)) return true;
+                _log.LogWarning("[leads] Skipping invalid lead record: {LeadId}", l?.Id ?? "<null>");
+                return false;
+            }).ToList();
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
-            _log.LogError(ex, "[leads] فایل لیدها خوانده نشد");
-            return new List<Lead>();
+            // JSON parsing error — data file is corrupted or has wrong format
+            _log.LogError(ex, "[leads] Failed to parse leads.json: invalid JSON format");
+            throw new InvalidOperationException("Lead store data is corrupted", ex);
+        }
+        catch (IOException ex)
+        {
+            // File I/O error — filesystem issue, not "no data"
+            _log.LogError(ex, "[leads] I/O error reading leads.json");
+            throw new InvalidOperationException("Unable to read lead store", ex);
         }
     }
 

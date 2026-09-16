@@ -450,6 +450,8 @@
        صفحه شامل ?handler=List است و فرمِ بدون action دوباره همان دستور را
        اجرا می‌کرد — یعنی دکمه‌ی ذخیره به‌جای ذخیره، یک مورد دیگر اضافه می‌کرد. *@
     <form method="post" asp-page="/Admin/Section" asp-route-section="@sec" class="flex flex-col gap-6">
+        @* CSRF protection token - required for POST requests *@
+        @Html.AntiForgeryToken()
         @{ await Node(Model.Working, Model.Defaults, sec, 0, false); }
 
         @* نوار چسبان پایین — تا در فرم‌های بلند دکمه‌ی ذخیره گم نشود *@

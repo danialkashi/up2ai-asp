@@ -38,6 +38,7 @@
                 @if (authed)
                 {
                     <form method="post" asp-page="/Admin/Login" asp-page-handler="Logout">
+                        @Html.AntiForgeryToken()
                         <button type="submit" class="inline-flex min-h-11 items-center rounded-lg border border-white/12 px-3 text-[13px] text-on-dark transition-colors hover:bg-white/10">خروج</button>
                     </form>
                 }
