@@ -56,9 +56,10 @@ public class IndexModel : ContentPageModel
                         FieldErrors[err.Key] = err.Value;
                     }
                 }
+                // Keep TempData for this request and the next (so refresh doesn't lose data)
+                TempData.Keep("contact_errors");
             }
             catch { }
-            TempData.Remove("contact_errors");
         }
 
         // Restore form values from TempData
