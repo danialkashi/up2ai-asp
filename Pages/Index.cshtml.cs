@@ -43,6 +43,31 @@ public class IndexModel : ContentPageModel
 
     public void OnGet() 
     { 
+        // Restore errors from TempData (PRG pattern)
+        if (TempData["contact_errors"] is string errorsJson)
+        {
+            try
+            {
+                var errors = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(errorsJson);
+                if (errors != null)
+                {
+                    foreach (var err in errors)
+                    {
+                        FieldErrors[err.Key] = err.Value;
+                    }
+                }
+            }
+            catch { }
+            TempData.Remove("contact_errors");
+        }
+
+        // Restore form values from TempData
+        if (TempData["contact_name"] is string name) Name = name;
+        if (TempData["contact_reach"] is string reach) Reach = reach;
+        if (TempData["contact_business"] is string business) Business = business;
+        if (TempData["contact_service"] is string service) Service = service;
+        if (TempData["contact_need"] is string need) Need = need;
+
         GenerateCaptcha();
     }
 
@@ -59,8 +84,9 @@ public class IndexModel : ContentPageModel
         if (!ValidateCaptcha(CaptchaAnswer, CaptchaToken))
         {
             FieldErrors["captcha"] = "کپچا درست نیست";
-            GenerateCaptcha();
-            return Page();
+            // Store errors and values in TempData for PRG redirect
+            StoreErrorsInTempData();
+            return RedirectToPage();
         }
 
         var name = (Name ?? "").Trim();
@@ -76,22 +102,40 @@ public class IndexModel : ContentPageModel
 
         if (FieldErrors.Count > 0)
         {
-            GenerateCaptcha();
-            return Page();
+            // Store errors and values in TempData for PRG redirect
+            StoreErrorsInTempData();
+            return RedirectToPage();
         }
 
         try
         {
             await _leads.AddAsync(name, reach, business, service, need);
             Submitted = true;
+            // Clear TempData on success
+            TempData.Remove("contact_errors");
+            // Don't redirect on success - show success message on same page
+            return Page();
         }
         catch (Exception ex)
         {
             _log.LogError(ex, "[leads] ثبت نشد");
             FormError = C["copy"]["contact"]["errorNote"].S;
+            StoreErrorsInTempData();
+            return RedirectToPage();
         }
+    }
 
-        return Page();
+    private void StoreErrorsInTempData()
+    {
+        if (FieldErrors.Count > 0)
+        {
+            TempData["contact_errors"] = System.Text.Json.JsonSerializer.Serialize(FieldErrors);
+        }
+        TempData["contact_name"] = Name;
+        TempData["contact_reach"] = Reach;
+        TempData["contact_business"] = Business;
+        TempData["contact_service"] = Service;
+        TempData["contact_need"] = Need;
     }
 
     private void GenerateCaptcha()

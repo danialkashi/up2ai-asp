@@ -2,8 +2,8 @@
  * Contact form validation UX
  * - Shows red * for required fields
  * - Changes to green ✓ when filled correctly
- * - Shows error messages only after submission attempt
- * - Prevents page jump to top
+ * - Shows error messages only after server validation
+ * - Does NOT prevent form submission - server is authoritative
  */
 (function() {
   "use strict";
@@ -69,38 +69,8 @@
     }
   });
 
-  // Handle form submission
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-
-    // Validate all required fields
-    let firstInvalidField = null;
-    let hasErrors = false;
-
-    Object.keys(requiredFields).forEach(fieldName => {
-      const isValid = isFieldValid(fieldName);
-      updateIndicator(fieldName, isValid);
-
-      if (!isValid) {
-        hasErrors = true;
-        const inputName = getInputName(fieldName);
-        const field = form.querySelector(`[name="${inputName}"]`);
-        if (field && !firstInvalidField) {
-          firstInvalidField = field;
-        }
-      }
-    });
-
-    if (hasErrors) {
-      // Scroll to first invalid field
-      if (firstInvalidField) {
-        firstInvalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        firstInvalidField.focus();
-      }
-      return;
-    }
-
-    // All fields valid, submit the form
-    form.submit();
-  });
+  // Do NOT prevent form submission - let server validate
+  // The form will POST to the server, which will validate all fields
+  // Server will redirect back with errors if validation fails
+  // This allows proper browser history and refresh behavior
 })();
