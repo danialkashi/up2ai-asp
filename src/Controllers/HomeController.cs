@@ -102,7 +102,7 @@ public class HomeController : Controller
     }
 
     /// <summary>Submit contact form</summary>
-    [HttpPost("/")]
+    [HttpPost("/contact")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitContact(IndexViewModel model)
     {

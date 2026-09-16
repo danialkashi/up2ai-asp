@@ -223,18 +223,6 @@ body {
 */
 .hero-dark {
   --hero-fade: 72px;
-  --hero-mask: linear-gradient(
-    to bottom,
-    #000 calc(100% - var(--hero-fade)),
-    rgb(0 0 0 / 0.887) calc(100% - var(--hero-fade) * 0.875),
-    rgb(0 0 0 / 0.779) calc(100% - var(--hero-fade) * 0.75),
-    rgb(0 0 0 / 0.663) calc(100% - var(--hero-fade) * 0.625),
-    rgb(0 0 0 / 0.54) calc(100% - var(--hero-fade) * 0.5),
-    rgb(0 0 0 / 0.412) calc(100% - var(--hero-fade) * 0.375),
-    rgb(0 0 0 / 0.279) calc(100% - var(--hero-fade) * 0.25),
-    rgb(0 0 0 / 0.142) calc(100% - var(--hero-fade) * 0.125),
-    rgb(0 0 0 / 0) 100%
-  );
   mask-image: var(--hero-mask);
   -webkit-mask-image: var(--hero-mask);
 }

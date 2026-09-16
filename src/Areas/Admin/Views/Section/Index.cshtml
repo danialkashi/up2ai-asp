@@ -483,7 +483,7 @@
     @* مسیر فرم عمداً صریح نوشته شده: بعد از «افزودن» یا «جابه‌جایی»، آدرس
        صفحه شامل ?handler=List است و فرمِ بدون action دوباره همان دستور را
        اجرا می‌کرد — یعنی دکمه‌ی ذخیره به‌جای ذخیره، یک مورد دیگر اضافه می‌کرد. *@
-    <form method="post" asp-controller="Section" asp-action="Index" asp-area="Admin" asp-route-section="@sec" class="flex flex-col gap-6">
+    <form method="post" asp-area="Admin" asp-controller="Section" asp-action="Save" asp-route-section="@sec" class="flex flex-col gap-6">
         @* دکمه‌ی پیش‌فرضِ فرم — عمداً *اولین* دکمه‌ی submit در ترتیب DOM.
 
            مرورگر وقتی کاربر داخل یک فیلد Enter می‌زند، اولین دکمه‌ی submitِ

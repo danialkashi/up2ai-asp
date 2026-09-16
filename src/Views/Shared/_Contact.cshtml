@@ -85,17 +85,41 @@
                 <span class="inline-flex items-center rounded-full border border-brand/20 bg-brand/[0.06] px-3 py-1 text-[13px] font-medium text-brand-ink">@cc["eyebrow"]</span>
                 <h2 class="mt-5 text-[1.75rem] font-bold leading-[1.45] tracking-tight text-on-light sm:text-[2.25rem]">@cc["heading"]</h2>
                 <p class="mt-4 text-[15px] leading-[2] text-on-light-muted sm:text-[16px]">@cc["lead"]</p>
-                <ul class="mt-7 flex flex-col gap-3">@foreach (var t in cc["assurances"]){<li class="flex gap-2.5 text-[14px] leading-[1.85] text-on-light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="mt-[7px] h-3 w-3 shrink-0 text-brand"><path d="m4.5 12.5 4.5 4.5L19.5 6.5"></path></svg><span>@t</span></li>}</ul>
+                <ul class="mt-7 flex flex-col gap-3">
+                    @foreach (var t in cc["assurances"])
+                    {
+                        <li class="flex gap-2.5 text-[14px] leading-[1.85] text-on-light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="mt-[7px] h-3 w-3 shrink-0 text-brand"><path d="m4.5 12.5 4.5 4.5L19.5 6.5"></path></svg><span>@t</span></li>
+                    }
+                </ul>
                 @if (hasDirectContact)
                 {
-                    <div class="mt-8 flex flex-wrap gap-3">@if (contact["whatsapp"].HasText){<a href="https://wa.me/@contact["whatsapp"]" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-hairline bg-card px-4 py-2.5 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] text-brand"><path d="M3.5 20.5 4.8 16A8.2 8.2 0 1 1 8 19.2l-4.5 1.3Z"></path><path d="M9 8.6c.3-.1.6 0 .8.3l.7 1.2c.2.3.1.6-.1.8l-.5.5c-.2.2-.2.4-.1.6.4.8 1.2 1.6 2 2 .2.1.4 0 .6-.1l.5-.5c.2-.2.5-.3.8-.1l1.2.7c.3.2.4.5.3.8-.2.7-.9 1.2-1.7 1.2-2.6 0-5.6-3-5.6-5.6 0-.8.4-1.5 1.1-1.8Z"></path></svg>@cc["whatsappCta"]</a>}@if (contact["telegram"].HasText){<a href="https://t.me/@contact["telegram"]" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-hairline bg-card px-4 py-2.5 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] text-brand"><path d="M21 4.5 2.9 11.3c-.7.3-.7 1.3.1 1.5l4.6 1.4 1.8 5c.2.6 1 .8 1.4.3l2.4-2.6 4.6 3.4c.6.4 1.4.1 1.6-.6L21.8 5.6c.2-.8-.6-1.4-1.3-1.1Z"></path><path d="m7.6 14.2 10.6-7.4-6.4 8.5"></path></svg>@cc["telegramCta"]</a>}</div>
+                    <div class="mt-8 flex flex-wrap gap-3">
+                        @if (contact["whatsapp"].HasText)
+                        {
+                            <a href="https://wa.me/@contact["whatsapp"]" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-hairline bg-card px-4 py-2.5 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] text-brand"><path d="M3.5 20.5 4.8 16A8.2 8.2 0 1 1 8 19.2l-4.5 1.3Z"></path><path d="M9 8.6c.3-.1.6 0 .8.3l.7 1.2c.2.3.1.6-.1.8l-.5.5c-.2.2-.2.4-.1.6.4.8 1.2 1.6 2 2 .2.1.4 0 .6-.1l.5-.5c.2-.2.5-.3.8-.1l1.2.7c.3.2.4.5.3.8-.2.7-.9 1.2-1.7 1.2-2.6 0-5.6-3-5.6-5.6 0-.8.4-1.5 1.1-1.8Z"></path></svg>@cc["whatsappCta"]</a>
+                        }
+                        @if (contact["telegram"].HasText)
+                        {
+                            <a href="https://t.me/@contact["telegram"]" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-2 rounded-xl border border-hairline bg-card px-4 py-2.5 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] text-brand"><path d="M21 4.5 2.9 11.3c-.7.3-.7 1.3.1 1.5l4.6 1.4 1.8 5c.2.6 1 .8 1.4.3l2.4-2.6 4.6 3.4c.6.4 1.4.1 1.6-.6L21.8 5.6c.2-.8-.6-1.4-1.3-1.1Z"></path><path d="m7.6 14.2 10.6-7.4-6.4 8.5"></path></svg>@cc["telegramCta"]</a>
+                        }
+                    </div>
                 }
                 else
                 {
                     // جمله یک رشته‌ی کامل در محتواست تا از پنل مدیریت قابل ویرایش
                     // بماند؛ فقط جای {file} با نام فایل پر می‌شود.
                     var parts = cc["missingContactNote"].S.Split("{file}");
-                    <p class="mt-8 rounded-xl border border-dashed border-hairline bg-card px-4 py-3 text-[13px] leading-[1.9] text-on-light-muted">@for (var i = 0; i < parts.Length; i++){ if (i > 0){<code class="text-brand-ink">@cc["missingContactFile"]</code>} <text>@parts[i]</text> }</p>
+                    <p class="mt-8 rounded-xl border border-dashed border-hairline bg-card px-4 py-3 text-[13px] leading-[1.9] text-on-light-muted">
+                        @for (var i = 0; i < parts.Length; i++)
+                        {
+                            if (i > 0)
+                            {
+                                <code class="text-brand-ink">@cc["missingContactFile"]</code>
+                            }
+
+                            <text>@parts[i]</text>
+                        }
+                    </p>
                 }
             </div>
 
@@ -121,81 +145,176 @@
                 }
                 else
                 {
-                    <form method="post" novalidate>
+                    @using (Html.BeginForm("Contact", null, FormMethod.Post,
+     new { novalidate = "novalidate", @class = "mt-8 rounded-2xl border border-hairline bg-card p-6 sm:p-7" }))
+                    {
+                        @Html.AntiForgeryToken()
+
                         <div class="flex flex-col gap-5">
                             <div class="flex flex-col gap-2">
-                                <label for="name" class="text-[14px] font-medium text-on-light">@cc["nameLabel"]</label>
-                                <input id="name" type="text" aria-invalid="@(eName != null ? "true" : null)" aria-describedby="@describedBy("name", false, eName)" class="@fieldCls(eName != null, false)" autocomplete="name" name="Name" value="@(vName.Length > 0 ? vName : null)" autofocus="@(focus == "name" ? "autofocus" : null)" />
+                                @Html.Label("Name", cc["nameLabel"].ToString(),
+                                    new { @for = "name", @class = "text-[14px] font-medium text-on-light" })
+
+                                @Html.TextBox("Name", vName.Length > 0 ? vName : null, new
+                                {
+                                    id = "name",
+                                    type = "text",
+                                    autocomplete = "name",
+                                    aria_invalid = eName != null ? "true" : null,
+                                    aria_describedby = describedBy("name", false, eName),
+                                    @class = fieldCls(eName != null, false),
+                                    autofocus = focus == "name" ? "autofocus" : null
+                                })
+
                                 @if (eName != null)
                                 {
-                                    <p id="name-error" class="text-[13px] text-red-700">@eName</p>
+                                    @Html.ValidationMessage("Name", eName,
+                                        new { id = "name-error", @class = "text-[13px] text-red-700" })
                                 }
                             </div>
 
                             <div class="flex flex-col gap-2">
-                                <label for="reach" class="text-[14px] font-medium text-on-light">@cc["reachLabel"]<span id="reach-hint" class="ms-2 font-normal text-on-light-muted">— @cc["reachHint"]</span></label>
-                                <input id="reach" type="text" aria-invalid="@(eReach != null ? "true" : null)" aria-describedby="@describedBy("reach", true, eReach)" class="@fieldCls(eReach != null, false)" inputmode="tel" name="Reach" value="@(vReach.Length > 0 ? vReach : null)" autofocus="@(focus == "reach" ? "autofocus" : null)" />
+                                @* label با hint — چون Html.Label محتوا را encode می‌کند،
+               از تگ خام استفاده می‌کنیم تا ساختار span حفظ شود. *@
+                                <label for="reach" class="text-[14px] font-medium text-on-light">
+                                    @cc["reachLabel"]<span id="reach-hint" class="ms-2 font-normal text-on-light-muted">— @cc["reachHint"]</span>
+                                </label>
+
+                                @Html.TextBox("Reach", vReach.Length > 0 ? vReach : null, new
+                                {
+                                    id = "reach",
+                                    type = "text",
+                                    inputmode = "tel",
+                                    aria_invalid = eReach != null ? "true" : null,
+                                    aria_describedby = describedBy("reach", true, eReach),
+                                    @class = fieldCls(eReach != null, false),
+                                    autofocus = focus == "reach" ? "autofocus" : null
+                                })
+
                                 @if (eReach != null)
                                 {
-                                    <p id="reach-error" class="text-[13px] text-red-700">@eReach</p>
+                                    @Html.ValidationMessage("Reach", eReach,
+                                        new { id = "reach-error", @class = "text-[13px] text-red-700" })
                                 }
                             </div>
 
                             <div class="flex flex-col gap-2">
-                                <label for="business" class="text-[14px] font-medium text-on-light">@cc["businessLabel"]<span id="business-hint" class="ms-2 font-normal text-on-light-muted">— @cc["businessHint"]</span></label>
-                                <input id="business" type="text" aria-invalid="@(eBusiness != null ? "true" : null)" aria-describedby="@describedBy("business", true, eBusiness)" class="@fieldCls(eBusiness != null, false)" name="Business" value="@(vBusiness.Length > 0 ? vBusiness : null)" />
+                                <label for="business" class="text-[14px] font-medium text-on-light">
+                                    @cc["businessLabel"]<span id="business-hint" class="ms-2 font-normal text-on-light-muted">— @cc["businessHint"]</span>
+                                </label>
+
+                                @Html.TextBox("Business", vBusiness.Length > 0 ? vBusiness : null, new
+                                {
+                                    id = "business",
+                                    type = "text",
+                                    aria_invalid = eBusiness != null ? "true" : null,
+                                    aria_describedby = describedBy("business", true, eBusiness),
+                                    @class = fieldCls(eBusiness != null, false)
+                                })
+
                                 @if (eBusiness != null)
                                 {
-                                    <p id="business-error" class="text-[13px] text-red-700">@eBusiness</p>
+                                    @Html.ValidationMessage("Business", eBusiness,
+                                        new { id = "business-error", @class = "text-[13px] text-red-700" })
                                 }
                             </div>
 
                             <div class="flex flex-col gap-2">
-                                <label for="service" class="text-[14px] font-medium text-on-light">@cc["serviceLabel"]</label>
-                                <select id="service" name="Service" class="min-h-11 rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors focus:border-brand">@foreach (var s in services){ var v = s.S; if (v == selectedService){<option value="@v" selected="">@v</option>} else {<option value="@v">@v</option>} }</select>
+                                @Html.Label("Service", cc["serviceLabel"].ToString(),
+                                    new { @for = "service", @class = "text-[14px] font-medium text-on-light" })
+
+                                @{
+                                    var serviceItems = services
+                                        .Select(s => new SelectListItem
+                                        {
+                                            Value = s.S,
+                                            Text = s.S,
+                                            Selected = s.S == selectedService
+                                        })
+                                        .ToList();
+                                }
+                                @Html.DropDownList("Service", serviceItems, new
+                                {
+                                    id = "service",
+                                    @class = "min-h-11 rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors focus:border-brand"
+                                })
                             </div>
 
                             <div class="flex flex-col gap-2">
-                                <label for="need" class="text-[14px] font-medium text-on-light">@cc["needLabel"]<span id="need-hint" class="ms-2 font-normal text-on-light-muted">— @cc["needHint"]</span></label>
-                                <textarea id="need" name="Need" rows="4" aria-invalid="@(eNeed != null ? "true" : null)" aria-describedby="@describedBy("need", true, eNeed)" class="@fieldCls(eNeed != null, true)" autofocus="@(focus == "need" ? "autofocus" : null)">@vNeed</textarea>
+                                <label for="need" class="text-[14px] font-medium text-on-light">
+                                    @cc["needLabel"]<span id="need-hint" class="ms-2 font-normal text-on-light-muted">— @cc["needHint"]</span>
+                                </label>
+
+                                @Html.TextArea("Need", vNeed, 4, 0, new
+                                {
+                                    id = "need",
+                                    aria_invalid = eNeed != null ? "true" : null,
+                                    aria_describedby = describedBy("need", true, eNeed),
+                                    @class = fieldCls(eNeed != null, true),
+                                    autofocus = focus == "need" ? "autofocus" : null
+                                })
+
                                 @if (eNeed != null)
                                 {
-                                    <p id="need-error" class="text-[13px] text-red-700">@eNeed</p>
+                                    @Html.ValidationMessage("Need", eNeed,
+                                        new { id = "need-error", @class = "text-[13px] text-red-700" })
                                 }
                             </div>
-                            @* ---------- کپچا ----------
-                               پرسش به‌صورت تصویر (SVG درون‌خطی) می‌آید تا در متنِ
-                               HTML عددی برای خواندن نباشد. برای صفحه‌خوان‌ها همان
-                               پرسش در aria-label تصویر هست، وگرنه فرم برای کاربرِ
-                               نابینا غیرقابل ارسال می‌شد. *@
+
+                            @* ---------- کپچا ---------- *@
                             <div class="flex flex-col gap-2">
-                                <label for="@FormGuard.AnswerField" class="text-[14px] font-medium text-on-light">@cc["captchaLabel"]</label>
+                                @Html.Label(FormGuard.AnswerField, cc["captchaLabel"].ToString(),
+                                    new { @for = FormGuard.AnswerField, @class = "text-[14px] font-medium text-on-light" })
+
                                 <div class="flex items-center gap-3">
-                                    <span id="captcha-image" class="shrink-0 select-none" role="img" aria-label="@cc["captchaAria"].S.Replace("{0}", Model.Captcha.Question)">@Html.Raw(CaptchaSvg.Render(Model.Captcha.Question))</span>
-                                    <input id="@FormGuard.AnswerField" name="@FormGuard.AnswerField" type="text" inputmode="numeric" autocomplete="off"
-                                           aria-invalid="@(eCaptcha != null ? "true" : null)" aria-describedby="@describedBy("captcha", false, eCaptcha)"
-                                           class="@fieldCls(eCaptcha != null, false)" value="" autofocus="@(focus == "captcha" ? "autofocus" : null)" />
+                                    <span id="captcha-image" class="shrink-0 select-none" role="img"
+                                          aria-label="@cc["captchaAria"].S.Replace("{0}", Model.Captcha.Question)">
+                                        @Html.Raw(CaptchaSvg.Render(Model.Captcha.Question))
+                                    </span>
+
+                                    @Html.TextBox(FormGuard.AnswerField, null, new
+                                    {
+                                        id = FormGuard.AnswerField,
+                                        type = "text",
+                                        inputmode = "numeric",
+                                        autocomplete = "off",
+                                        aria_invalid = eCaptcha != null ? "true" : null,
+                                        aria_describedby = describedBy("captcha", false, eCaptcha),
+                                        @class = fieldCls(eCaptcha != null, false),
+                                        autofocus = focus == "captcha" ? "autofocus" : null
+                                    })
                                 </div>
+
                                 @if (eCaptcha != null)
                                 {
-                                    <p id="captcha-error" class="text-[13px] text-red-700">@eCaptcha</p>
+                                    @Html.ValidationMessage(FormGuard.AnswerField, eCaptcha,
+                                        new { id = "captcha-error", @class = "text-[13px] text-red-700" })
                                 }
                             </div>
                         </div>
 
-                        @* توکنِ امضاشده‌ی کپچا و مهرِ زمانِ باز شدن فرم. *@
-                        <input type="hidden" name="@FormGuard.TokenField" value="@Model.Captcha.Token" />
-                        <input type="hidden" name="@FormGuard.StartedField" value="@Model.FormStamp" />
+                        @Html.Hidden(FormGuard.TokenField, Model.Captcha.Token)
+                        @Html.Hidden(FormGuard.StartedField, Model.FormStamp)
 
-                        @* فیلدِ تله: کاربر نه می‌بیندش نه با Tab به آن می‌رسد؛
-                           ربات‌های فرم‌پرکن معمولاً پرش می‌کنند. `hidden` ساده
-                           استفاده نشده چون بعضی ربات‌ها همان را نشانه می‌گیرند. *@
                         <div aria-hidden="true" class="absolute -left-[9999px] h-0 w-0 overflow-hidden">
-                            <label for="@FormGuard.HoneypotField">وب‌سایت (خالی بماند)</label>
-                            <input id="@FormGuard.HoneypotField" name="@FormGuard.HoneypotField" type="text" tabindex="-1" autocomplete="off" value="" />
+                            @Html.Label(FormGuard.HoneypotField, "وب‌سایت (خالی بماند)",
+                                new { @for = FormGuard.HoneypotField })
+                            @Html.TextBox(FormGuard.HoneypotField, null, new
+                            {
+                                id = FormGuard.HoneypotField,
+                                type = "text",
+                                tabindex = "-1",
+                                autocomplete = "off"
+                            })
                         </div>
 
-                        <button type="submit" class="group mt-7 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-6 py-3.5 text-[15px] font-medium text-white shadow-[0_10px_30px_-10px_rgba(99,102,241,0.7)] transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-70">@cc["submit"]<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] transition-transform duration-200 group-hover:-translate-x-1"><path d="M19 12H5"></path><path d="m11 6-6 6 6 6"></path></svg></button>
+                        <button type="submit" class="group mt-7 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-6 py-3.5 text-[15px] font-medium text-white shadow-[0_10px_30px_-10px_rgba(99,102,241,0.7)] transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-70">
+                            @cc["submit"]
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-[18px] w-[18px] transition-transform duration-200 group-hover:-translate-x-1">
+                                <path d="M19 12H5"></path>
+                                <path d="m11 6-6 6 6 6"></path>
+                            </svg>
+                        </button>
 
                         <p aria-live="polite" class="sr-only"></p>
 
@@ -205,7 +324,7 @@
                         }
 
                         <p class="mt-4 text-[12.5px] leading-[1.9] text-on-light-muted">@cc["privacyNote"]</p>
-                    </form>
+                    }
                 }
             </div>
         </div>

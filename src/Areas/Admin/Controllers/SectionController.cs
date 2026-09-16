@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Up2Ai.Areas.Admin.Models;
 using Up2Ai.Services;
 
@@ -12,11 +13,13 @@ public class SectionController : Controller
 {
     private readonly ContentStore _store;
     private readonly AdminUserStore _users;
+    private readonly ILogger<SectionController> _logger;
 
-    public SectionController(ContentStore store, AdminUserStore users)
+    public SectionController(ContentStore store, AdminUserStore users, ILogger<SectionController> logger)
     {
         _store = store;
         _users = users;
+        _logger = logger;
     }
 
     private Cv LoadViewData()
@@ -85,7 +88,7 @@ public class SectionController : Controller
     }
 
     /// <summary>Save section changes</summary>
-    [HttpPost("section/{section}")]
+    [HttpPost("/admin/section/{section}")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Save(string section, [FromForm] IFormCollection form)
     {
@@ -106,6 +109,7 @@ public class SectionController : Controller
 
             // Validate section-specific fields
             var validation = ValidateSection(section, working);
+            
             if (validation.HasErrors)
             {
                 TempData["rejected"] = string.Join("|", validation.Errors);
@@ -123,7 +127,7 @@ public class SectionController : Controller
                 current = (JsonObject)defaults.DeepClone();
             }
             
-            current[section] = working;
+            current![section] = working;
             _store.Save(current);
 
             TempData["saved"] = $"Section '{section}' saved.";
@@ -154,11 +158,11 @@ public class SectionController : Controller
             }
         }
 
-        return (!errors.Any(), errors);
+        return (errors.Any(), errors);
     }
 
     /// <summary>List operation (add/remove/reorder items)</summary>
-    [HttpPost("section/{section}/list")]
+    [HttpPost("/admin/section/{section}/list")]
     [ValidateAntiForgeryToken]
     public IActionResult List(string section, string op, string path, int index)
     {
