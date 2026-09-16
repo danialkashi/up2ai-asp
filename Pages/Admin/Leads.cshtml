@@ -1,6 +1,7 @@
 @page "/admin/leads"
 @model Up2Ai.Pages.Admin.LeadsModel
 @using Up2Ai.Pages.Admin
+@using Up2Ai.Services
 @{ Layout = "_AdminLayout"; }
 
 <div class="flex flex-col gap-6">
@@ -12,19 +13,22 @@
                 تماس مستقیمی هم پر شده باشد یا نه. چیزی گم نمی‌شود.
             </p>
         </div>
-        @* این یک صفحه نیست، یک مسیر دانلود فایل CSV است. *@
         <a href="/admin/leads/export" class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-hairline bg-card px-4 text-[14px] font-medium text-on-light transition-colors hover:border-brand/35">خروجی CSV</a>
     </div>
 
-    <div class="flex items-center gap-2 text-[13px]">
-        <a href="/admin/leads" class="inline-flex min-h-11 items-center rounded-lg px-3 font-medium transition-colors @(!Model.OnlyUnhandled ? "bg-brand/10 text-brand-ink" : "text-on-light-muted hover:text-on-light")">همه (@Model.TotalCount)</a>
-        <a href="/admin/leads?filter=unhandled" class="inline-flex min-h-11 items-center rounded-lg px-3 font-medium transition-colors @(Model.OnlyUnhandled ? "bg-brand/10 text-brand-ink" : "text-on-light-muted hover:text-on-light")">پیگیری‌نشده (@Model.UnhandledCount)</a>
+    @* Status filter tabs *@
+    <div class="flex flex-wrap items-center gap-2 text-[13px]">
+        <a href="/admin/leads" class="inline-flex min-h-11 items-center rounded-lg px-3 font-medium transition-colors @(Model.CurrentStatus == "" ? "bg-brand/10 text-brand-ink" : "text-on-light-muted hover:text-on-light")">همه (@Model.StatusCounts[""])</a>
+        <a href="/admin/leads?filter=@LeadStatus.New" class="inline-flex min-h-11 items-center rounded-lg px-3 font-medium transition-colors @(Model.CurrentStatus == LeadStatus.New ? "bg-brand/10 text-brand-ink" : "text-on-light-muted hover:text-on-light")">جدید (@Model.StatusCounts[LeadStatus.New])</a>
+        <a href="/admin/leads?filter=@LeadStatus.Contacted" class="inline-flex min-h-11 items-center rounded-lg px-3 font-medium transition-colors @(Model.CurrentStatus == LeadStatus.Contacted ? "bg-brand/10 text-brand-ink" : "text-on-light-muted hover:text-on-light")">تماس گرفته (@Model.StatusCounts[LeadStatus.Contacted])</a>
+        <a href="/admin/leads?filter=@LeadStatus.FollowUp" class="inline-flex min-h-11 items-center rounded-lg px-3 font-medium transition-colors @(Model.CurrentStatus == LeadStatus.FollowUp ? "bg-brand/10 text-brand-ink" : "text-on-light-muted hover:text-on-light")">پیگیری (@Model.StatusCounts[LeadStatus.FollowUp])</a>
+        <a href="/admin/leads?filter=@LeadStatus.Done" class="inline-flex min-h-11 items-center rounded-lg px-3 font-medium transition-colors @(Model.CurrentStatus == LeadStatus.Done ? "bg-brand/10 text-brand-ink" : "text-on-light-muted hover:text-on-light")">انجام (@Model.StatusCounts[LeadStatus.Done])</a>
     </div>
 
     @if (Model.Leads.Count == 0)
     {
         <div class="rounded-2xl border border-dashed border-hairline bg-card px-5 py-10 text-center text-[14px] leading-[2] text-on-light-muted">
-            @(Model.OnlyUnhandled ? "همه‌ی لیدها پیگیری شده‌اند." : "هنوز هیچ لیدی ثبت نشده.")
+            @(string.IsNullOrEmpty(Model.CurrentStatus) ? "هنوز هیچ لیدی ثبت نشده." : $"هیچ لیدی در وضعیت \"{LeadsModel.StatusToPersian(Model.CurrentStatus)}\" نیست.")
         </div>
     }
     else
@@ -32,7 +36,8 @@
         <ul class="flex flex-col gap-3">
             @foreach (var lead in Model.Leads)
             {
-                <li class="rounded-2xl border bg-card p-5 transition-colors @(lead.Handled ? "border-hairline opacity-70" : "border-brand/25")">
+                <li class="rounded-2xl border bg-card p-5 transition-colors border-hairline">
+                    @* Header: Name, Service, Status, Timestamp *@
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <div class="flex flex-wrap items-center gap-2">
@@ -41,18 +46,17 @@
                                 {
                                     <span class="rounded-md bg-surface-2 px-2 py-0.5 text-[12px] text-on-light-muted">@lead.Service</span>
                                 }
-                                @if (lead.Handled)
-                                {
-                                    <span class="rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">پیگیری شد</span>
-                                }
-                                else
-                                {
-                                    <span class="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">پیگیری‌نشده</span>
-                                }
+                                <span class="rounded-md px-2 py-0.5 text-[11px] font-medium @LeadsModel.StatusToColor(lead.Status)">@LeadsModel.StatusToPersian(lead.Status)</span>
                             </div>
                             <p class="mt-1 text-[13px] text-on-light-muted" dir="ltr">@lead.Reach</p>
                         </div>
-                        <span class="text-[12.5px] text-on-light-muted">@LeadsModel.FormatAt(lead.At)</span>
+                        <div class="flex flex-col items-end gap-1">
+                            <span class="text-[12.5px] text-on-light-muted">ثبت: @LeadsModel.FormatAt(lead.At)</span>
+                            @if (!string.IsNullOrEmpty(lead.LastContactedAt))
+                            {
+                                <span class="text-[12.5px] text-on-light-muted">تماس: @LeadsModel.FormatAt(lead.LastContactedAt)</span>
+                            }
+                        </div>
                     </div>
 
                     @if (!string.IsNullOrEmpty(lead.Business))
@@ -62,19 +66,51 @@
 
                     <p class="mt-2 whitespace-pre-wrap text-[14px] leading-[1.95] text-on-light">@lead.Need</p>
 
-                    <div class="mt-4 flex items-center gap-2">
-                        <form method="post" asp-page-handler="Toggle">
+                    @* Internal Notes Section *@
+                    <div class="mt-4 rounded-lg border border-hairline bg-surface-2 p-4">
+                        <form method="post" asp-page-handler="SetNotes" class="flex flex-col gap-2">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@lead.Id" />
-                            <input type="hidden" name="handled" value="@((!lead.Handled).ToString().ToLowerInvariant())" />
                             <input type="hidden" name="filter" value="@Model.Filter" />
-                            <button type="submit" class="inline-flex min-h-11 items-center rounded-lg border border-hairline px-3 text-[13px] font-medium text-on-light transition-colors hover:border-brand/35">@(lead.Handled ? "برداشتن علامت پیگیری" : "پیگیری شد")</button>
+                            <label for="notes_@lead.Id" class="text-[13px] font-medium text-on-light">یادداشت‌های داخلی</label>
+                            <textarea id="notes_@lead.Id" name="notes" class="min-h-20 w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-[14px] leading-[1.7] text-on-light outline-none transition-colors placeholder:text-on-light-muted focus:border-brand" placeholder="یادداشت خصوصی برای این لید...">@lead.InternalNotes</textarea>
+                            <button type="submit" class="inline-flex min-h-10 w-fit items-center rounded-lg border border-hairline px-3 text-[13px] font-medium text-on-light transition-colors hover:border-brand/35">ذخیره‌ی یادداشت</button>
                         </form>
-                        <form method="post" asp-page-handler="Delete">
+                    </div>
+
+                    @* Actions Section *@
+                    <div class="mt-4 flex flex-wrap items-center gap-2">
+                        @* Status Selector *@
+                        <form method="post" asp-page-handler="SetStatus" class="flex items-center gap-2">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@lead.Id" />
                             <input type="hidden" name="filter" value="@Model.Filter" />
-                            <button type="submit" class="inline-flex min-h-11 items-center rounded-lg px-3 text-[13px] text-on-light-muted transition-colors hover:text-red-700">حذف</button>
+                            <select name="status" class="rounded-lg border border-hairline bg-surface px-2 py-2 text-[13px] text-on-light outline-none transition-colors focus:border-brand" onchange="this.form.submit()">
+                                <option value="">-- تغییر وضعیت --</option>
+                                @Html.Raw($"<option value=\"{LeadStatus.New}\" {(lead.Status == LeadStatus.New ? "selected" : "")}>جدید</option>")
+                                @Html.Raw($"<option value=\"{LeadStatus.Contacted}\" {(lead.Status == LeadStatus.Contacted ? "selected" : "")}>تماس گرفته شد</option>")
+                                @Html.Raw($"<option value=\"{LeadStatus.FollowUp}\" {(lead.Status == LeadStatus.FollowUp ? "selected" : "")}>پیگیری مورد نیاز</option>")
+                                @Html.Raw($"<option value=\"{LeadStatus.Done}\" {(lead.Status == LeadStatus.Done ? "selected" : "")}>انجام شده</option>")
+                            </select>
+                        </form>
+
+                        @* Mark as Contacted Button *@
+                        @if (lead.Status != LeadStatus.Done)
+                        {
+                            <form method="post" asp-page-handler="MarkContacted" style="display: inline;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@lead.Id" />
+                                <input type="hidden" name="filter" value="@Model.Filter" />
+                                <button type="submit" class="inline-flex min-h-10 items-center rounded-lg border border-hairline bg-brand/[0.08] px-3 text-[13px] font-medium text-brand transition-colors hover:border-brand/35">📞 تماس گرفتم</button>
+                            </form>
+                        }
+
+                        @* Delete Button *@
+                        <form method="post" asp-page-handler="Delete" style="display: inline;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@lead.Id" />
+                            <input type="hidden" name="filter" value="@Model.Filter" />
+                            <button type="submit" class="inline-flex min-h-10 items-center rounded-lg px-3 text-[13px] text-on-light-muted transition-colors hover:text-red-700" onclick="return confirm('این لید حذف شود؟');">حذف</button>
                         </form>
                     </div>
                 </li>

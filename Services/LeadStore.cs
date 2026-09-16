@@ -5,16 +5,37 @@ using System.Text.Json.Serialization;
 
 namespace Up2Ai.Services;
 
+/// <summary>Lead workflow status constants.</summary>
+public static class LeadStatus
+{
+    public const string New = "new";
+    public const string Contacted = "contacted";
+    public const string FollowUp = "follow_up";
+    public const string Done = "done";
+
+    public static readonly string[] All = { New, Contacted, FollowUp, Done };
+
+    public static bool IsValid(string? status) => All.Contains(status);
+}
+
 public sealed class Lead
 {
     [JsonPropertyName("id")] public string Id { get; set; } = "";
-    [JsonPropertyName("at")] public string At { get; set; } = "";     // ISO timestamp
+    [JsonPropertyName("at")] public string At { get; set; } = "";           // ISO timestamp (created)
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("reach")] public string Reach { get; set; } = "";
     [JsonPropertyName("business")] public string Business { get; set; } = "";
     [JsonPropertyName("service")] public string Service { get; set; } = "";
     [JsonPropertyName("need")] public string Need { get; set; } = "";
-    [JsonPropertyName("handled")] public bool Handled { get; set; }
+    
+    // New workflow fields - NO DEFAULT VALUES, must be set explicitly
+    [JsonPropertyName("status")] public string? Status { get; set; }
+    [JsonPropertyName("lastContactedAt")] public string? LastContactedAt { get; set; }
+    [JsonPropertyName("internalNotes")] public string? InternalNotes { get; set; }
+    
+    // Old field: deserializes from "handled" but doesn't serialize back
+    [JsonPropertyName("handled")] [JsonIgnore(Condition = JsonIgnoreCondition.WhenWriting)]
+    public bool Handled { get; set; }
 }
 
 /// <summary>
@@ -39,6 +60,7 @@ public sealed class LeadStore
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,  // Write all fields, even if they have default values
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
@@ -64,11 +86,31 @@ public sealed class LeadStore
             var parsed = JsonSerializer.Deserialize<List<Lead>>(raw);
             if (parsed is null)
             {
-                // File exists but deserializer returned null — this indicates a JSON structure issue
                 _log.LogError("[leads] Failed to deserialize leads.json: deserialization returned null");
                 throw new InvalidOperationException("Invalid leads data structure");
             }
-            // Each record is validated separately — a malformed record shouldn't affect others
+            
+            // One-time migration: if raw JSON contains "handled" field, migrate to new format
+            bool needsRewrite = raw.Contains("\"handled\"");
+            
+            foreach (var lead in parsed)
+            {
+                // Migrate: handled → status (only if status is empty/null)
+                if (string.IsNullOrEmpty(lead.Status))
+                {
+                    lead.Status = lead.Handled ? LeadStatus.Done : LeadStatus.New;
+                    needsRewrite = true;
+                }
+            }
+            
+            // Persist migration (one-time operation per file)
+            if (needsRewrite)
+            {
+                WriteAllUnlocked(parsed);
+                _log.LogInformation("[leads] Migrated {Count} leads to new workflow format", parsed.Count);
+            }
+            
+            // Validate and filter
             return parsed.Where(l =>
             {
                 if (IsValid(l)) return true;
@@ -78,13 +120,11 @@ public sealed class LeadStore
         }
         catch (JsonException ex)
         {
-            // JSON parsing error — data file is corrupted or has wrong format
             _log.LogError(ex, "[leads] Failed to parse leads.json: invalid JSON format");
             throw new InvalidOperationException("Lead store data is corrupted", ex);
         }
         catch (IOException ex)
         {
-            // File I/O error — filesystem issue, not "no data"
             _log.LogError(ex, "[leads] I/O error reading leads.json");
             throw new InvalidOperationException("Unable to read lead store", ex);
         }
@@ -144,7 +184,7 @@ public sealed class LeadStore
             {
                 Id = Guid.NewGuid().ToString(),
                 At = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture),
-                Handled = false,
+                Status = LeadStatus.New,
                 Name = name,
                 Reach = reach,
                 Business = business,
@@ -162,17 +202,50 @@ public sealed class LeadStore
             .OrderByDescending(l => l.At, StringComparer.Ordinal)
             .ToList();
 
-    public Task<bool> SetHandledAsync(string id, bool handled) =>
+    /// <summary>تغییر وضعیت لید.</summary>
+    public Task<bool> SetStatusAsync(string id, string status) =>
+        WithLockAsync(() =>
+        {
+            if (!LeadStatus.IsValid(status)) return false;
+            var leads = ReadAllUnlocked();
+            var lead = leads.FirstOrDefault(l => l.Id == id);
+            if (lead is null) return false;
+            lead.Status = status;
+            WriteAllUnlocked(leads);
+            return true;
+        });
+
+    /// <summary>علامت‌گذاری کردن «تماس گرفته شد» — به‌روز رسانی زمان آخرین تماس.</summary>
+    public Task<bool> SetContactedAsync(string id) =>
         WithLockAsync(() =>
         {
             var leads = ReadAllUnlocked();
             var lead = leads.FirstOrDefault(l => l.Id == id);
             if (lead is null) return false;
-            lead.Handled = handled;
+            lead.LastContactedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
             WriteAllUnlocked(leads);
             return true;
         });
 
+    /// <summary>ویرایش یادداشت‌های داخلی برای یک لید.</summary>
+    public Task<bool> SetNotesAsync(string id, string? notes) =>
+        WithLockAsync(() =>
+        {
+            var leads = ReadAllUnlocked();
+            var lead = leads.FirstOrDefault(l => l.Id == id);
+            if (lead is null) return false;
+            
+            // Limit notes to reasonable size
+            var maxNotes = 5000;
+            if (!string.IsNullOrEmpty(notes) && notes.Length > maxNotes)
+                notes = notes.Substring(0, maxNotes);
+            
+            lead.InternalNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+            WriteAllUnlocked(leads);
+            return true;
+        });
+
+    /// <summary>حذف یک لید — فقط از پنل مدیریت (مثلاً برای ورودی‌های آزمایشی/اسپم).</summary>
     public Task<bool> DeleteAsync(string id) =>
         WithLockAsync(() =>
         {
@@ -189,7 +262,7 @@ public sealed class LeadStore
         var fa = new CultureInfo("fa-IR");
         string Esc(string s) => "\"" + s.Replace("\"", "\"\"") + "\"";
 
-        var headers = new[] { "تاریخ", "نام", "راه ارتباطی", "کسب‌وکار", "حوزه", "نیاز", "پیگیری شد" };
+        var headers = new[] { "تاریخ", "نام", "راه ارتباطی", "کسب‌وکار", "حوزه", "نیاز", "وضعیت", "آخرین تماس", "یادداشت" };
         var lines = new List<string> { string.Join(",", headers.Select(Esc)) };
 
         foreach (var l in leads)
@@ -198,12 +271,30 @@ public sealed class LeadStore
                 DateTimeStyles.RoundtripKind, out var dt)
                 ? dt.ToLocalTime().ToString(fa)
                 : l.At;
+            
+            var lastContacted = string.IsNullOrEmpty(l.LastContactedAt) 
+                ? "" 
+                : (DateTime.TryParse(l.LastContactedAt, CultureInfo.InvariantCulture,
+                    DateTimeStyles.RoundtripKind, out var ldt)
+                    ? ldt.ToLocalTime().ToString(fa)
+                    : l.LastContactedAt);
+            
             lines.Add(string.Join(",", new[]
             {
-                when, l.Name, l.Reach, l.Business, l.Service, l.Need, l.Handled ? "بله" : "خیر",
+                when, l.Name, l.Reach, l.Business, l.Service, l.Need, 
+                StatusToPersian(l.Status), lastContacted, l.InternalNotes ?? "",
             }.Select(Esc)));
         }
 
         return "﻿" + string.Join("\r\n", lines);
     }
+
+    private static string StatusToPersian(string status) => status switch
+    {
+        LeadStatus.New => "جدید",
+        LeadStatus.Contacted => "تماس گرفته شد",
+        LeadStatus.FollowUp => "پیگیری مورد نیاز",
+        LeadStatus.Done => "انجام شده",
+        _ => status,
+    };
 }

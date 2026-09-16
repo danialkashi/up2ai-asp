@@ -8,9 +8,9 @@ namespace Up2Ai.Pages.Admin;
 /// <summary>
 /// صندوق لید — همه‌ی درخواست‌هایی که فرم تماس ذخیره کرده.
 ///
-/// فیلتر «فقط پیگیری‌نشده‌ها» با یک query param است، نه state سمت کلاینت —
+/// فیلتر وضعیت با یک query param است، نه state سمت کلاینت —
 /// یعنی این صفحه هیچ جاوااسکریپتی لازم ندارد و حتی بدون آن هم کامل کار
-/// می‌کند، مثل بقیه‌ی پنل. همین دلیل باعث می‌شود «پیگیری شد» و «حذف» هم
+/// می‌کند، مثل بقیه‌ی پنل. تمام اقدامات (تغییر وضعیت، یادداشت، حذف) هم
 /// فرم POST باشند و نه دکمه‌ی جاوااسکریپتی.
 ///
 /// هر handler *خودش* دوباره ورود را بررسی می‌کند و به گارد لایوت اکتفا
@@ -27,13 +27,11 @@ public class LeadsModel : AdminPageModel
     /// <summary>مقدار خام `?filter=` — عیناً نگه داشته می‌شود تا بعد از POST همان صفحه برگردد.</summary>
     public string? Filter { get; private set; }
 
-    public bool OnlyUnhandled { get; private set; }
+    public string CurrentStatus { get; private set; } = "";
 
     public List<Lead> Leads { get; private set; } = new();
 
-    public int TotalCount { get; private set; }
-
-    public int UnhandledCount { get; private set; }
+    public Dictionary<string, int> StatusCounts { get; private set; } = new();
 
     public IActionResult OnGet(string? filter)
     {
@@ -41,27 +39,65 @@ public class LeadsModel : AdminPageModel
         if (guard is not null) return guard;
 
         Filter = filter;
-        OnlyUnhandled = filter == "unhandled";
+        CurrentStatus = filter ?? "";
 
         var all = _leads.List();
-        TotalCount = all.Count;
-        UnhandledCount = all.Count(l => !l.Handled);
-        Leads = OnlyUnhandled ? all.Where(l => !l.Handled).ToList() : all;
+        
+        // Count leads by status
+        StatusCounts = new()
+        {
+            { "", all.Count },  // "All"
+            { LeadStatus.New, all.Count(l => l.Status == LeadStatus.New) },
+            { LeadStatus.Contacted, all.Count(l => l.Status == LeadStatus.Contacted) },
+            { LeadStatus.FollowUp, all.Count(l => l.Status == LeadStatus.FollowUp) },
+            { LeadStatus.Done, all.Count(l => l.Status == LeadStatus.Done) },
+        };
+
+        // Filter by status
+        Leads = string.IsNullOrEmpty(filter) 
+            ? all 
+            : all.Where(l => l.Status == filter).ToList();
 
         return Page();
     }
 
-    /// <summary>علامت‌گذاری/برداشتن «پیگیری شد» — فقط از پنل مدیریت.</summary>
-    public async Task<IActionResult> OnPostToggleAsync(string? id, bool handled, string? filter)
+    /// <summary>تغییر وضعیت لید.</summary>
+    public async Task<IActionResult> OnPostSetStatusAsync(string? id, string? status, string? filter)
     {
         var guard = RequireAuth();
         if (guard is not null) return guard;
 
-        if (!string.IsNullOrEmpty(id)) await _leads.SetHandledAsync(id, handled);
+        if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(status) && LeadStatus.IsValid(status))
+            await _leads.SetStatusAsync(id, status);
+        
         return Back(filter);
     }
 
-    /// <summary>حذف یک لید — فقط از پنل مدیریت (مثلاً برای ورودی‌های آزمایشی/اسپم).</summary>
+    /// <summary>علامت‌گذاری لید به‌عنوان تماس‌گرفته‌شده و به‌روز رسانی زمان تماس.</summary>
+    public async Task<IActionResult> OnPostMarkContactedAsync(string? id, string? filter)
+    {
+        var guard = RequireAuth();
+        if (guard is not null) return guard;
+
+        if (!string.IsNullOrEmpty(id))
+            await _leads.SetContactedAsync(id);
+        
+        return Back(filter);
+    }
+
+    /// <summary>ذخیره‌ی یادداشت‌های داخلی برای لید.</summary>
+    public async Task<IActionResult> OnPostSetNotesAsync(string? id, string? notes, string? filter)
+    {
+        var guard = RequireAuth();
+        if (guard is not null) return guard;
+
+        if (!string.IsNullOrEmpty(id))
+            await _leads.SetNotesAsync(id, notes);
+        
+        return Back(filter);
+    }
+
+    /// <summary>حذف یک لید.</summary>
     public async Task<IActionResult> OnPostDeleteAsync(string? id, string? filter)
     {
         var guard = RequireAuth();
@@ -81,9 +117,6 @@ public class LeadsModel : AdminPageModel
 
     /* ------------------------------- تاریخ ------------------------------- */
 
-    // معادل `new Date(at).toLocaleString("fa-IR", { dateStyle: "medium", timeStyle: "short" })`
-    // در نسخه‌ی Next: تقویم جلالی، ماهِ نام‌دار، ساعت ۲۴ساعته و ارقام فارسی.
-    // .NET خودش جای‌گزینی ارقام را انجام نمی‌دهد، پس آخرین قدم دستی است.
     private static readonly CultureInfo Fa = MakeFa();
 
     private static CultureInfo MakeFa()
@@ -110,7 +143,6 @@ public class LeadsModel : AdminPageModel
         var local = dt.Kind == DateTimeKind.Utc ? dt.ToLocalTime() : dt;
         try
         {
-            // «، » همان جداکننده‌ای است که CLDR برای فارسی بین تاریخ و ساعت می‌گذارد.
             return ToPersianDigits(local.ToString("d MMMM yyyy'، 'H:mm", Fa));
         }
         catch (Exception)
@@ -118,6 +150,24 @@ public class LeadsModel : AdminPageModel
             return at;
         }
     }
+
+    public static string StatusToPersian(string status) => status switch
+    {
+        LeadStatus.New => "جدید",
+        LeadStatus.Contacted => "تماس گرفته شد",
+        LeadStatus.FollowUp => "پیگیری مورد نیاز",
+        LeadStatus.Done => "انجام شده",
+        _ => status,
+    };
+
+    public static string StatusToColor(string status) => status switch
+    {
+        LeadStatus.New => "bg-blue-100 text-blue-800",
+        LeadStatus.Contacted => "bg-green-100 text-green-800",
+        LeadStatus.FollowUp => "bg-amber-100 text-amber-900",
+        LeadStatus.Done => "bg-gray-100 text-gray-800",
+        _ => "bg-gray-100 text-gray-800",
+    };
 
     private static string ToPersianDigits(string s)
     {
