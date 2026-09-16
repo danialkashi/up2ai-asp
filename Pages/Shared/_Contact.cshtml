@@ -128,8 +128,11 @@
                         @Html.AntiForgeryToken()
                         <div class="flex flex-col gap-5">
                             <div class="flex flex-col gap-2">
-                                <label for="name" class="text-[14px] font-medium text-on-light">@cc["nameLabel"]</label>
-                                <input id="name" type="text" aria-invalid="@(eName != null ? "true" : null)" aria-describedby="@describedBy("name", false, eName)" class="@fieldCls(eName != null, false)" autocomplete="name" name="Name" value="@(vName.Length > 0 ? vName : null)" autofocus="@(focus == "name" ? "autofocus" : null)" />
+                                <label for="name" class="text-[14px] font-medium text-on-light">
+                                    @cc["nameLabel"]
+                                    <span class="required-indicator ms-1 text-red-600 font-bold" data-field="name">*</span>
+                                </label>
+                                <input id="name" type="text" aria-invalid="@(eName != null ? "true" : null)" aria-describedby="@describedBy("name", false, eName)" aria-required="true" class="@fieldCls(eName != null, false)" autocomplete="name" name="Name" value="@(vName.Length > 0 ? vName : null)" autofocus="@(focus == "name" ? "autofocus" : null)" />
                                 @if (eName != null)
                                 {
                                     <p id="name-error" class="text-[13px] text-red-700">@eName</p>
@@ -137,8 +140,12 @@
                             </div>
 
                             <div class="flex flex-col gap-2">
-                                <label for="reach" class="text-[14px] font-medium text-on-light">@cc["reachLabel"]<span id="reach-hint" class="ms-2 font-normal text-on-light-muted">— @cc["reachHint"]</span></label>
-                                <input id="reach" type="text" aria-invalid="@(eReach != null ? "true" : null)" aria-describedby="@describedBy("reach", true, eReach)" class="@fieldCls(eReach != null, false)" inputmode="tel" name="Reach" value="@(vReach.Length > 0 ? vReach : null)" autofocus="@(focus == "reach" ? "autofocus" : null)" />
+                                <label for="reach" class="text-[14px] font-medium text-on-light">
+                                    @cc["reachLabel"]
+                                    <span class="required-indicator ms-1 text-red-600 font-bold" data-field="reach">*</span>
+                                    <span id="reach-hint" class="ms-2 font-normal text-on-light-muted">— @cc["reachHint"]</span>
+                                </label>
+                                <input id="reach" type="text" aria-invalid="@(eReach != null ? "true" : null)" aria-describedby="@describedBy("reach", true, eReach)" aria-required="true" class="@fieldCls(eReach != null, false)" inputmode="tel" name="Reach" value="@(vReach.Length > 0 ? vReach : null)" autofocus="@(focus == "reach" ? "autofocus" : null)" />
                                 @if (eReach != null)
                                 {
                                     <p id="reach-error" class="text-[13px] text-red-700">@eReach</p>
@@ -146,7 +153,10 @@
                             </div>
 
                             <div class="flex flex-col gap-2">
-                                <label for="business" class="text-[14px] font-medium text-on-light">@cc["businessLabel"]<span id="business-hint" class="ms-2 font-normal text-on-light-muted">— @cc["businessHint"]</span></label>
+                                <label for="business" class="text-[14px] font-medium text-on-light">
+                                    @cc["businessLabel"]
+                                    <span id="business-hint" class="ms-2 font-normal text-on-light-muted">— @cc["businessHint"]</span>
+                                </label>
                                 <input id="business" type="text" aria-invalid="@(eBusiness != null ? "true" : null)" aria-describedby="@describedBy("business", true, eBusiness)" class="@fieldCls(eBusiness != null, false)" name="Business" value="@(vBusiness.Length > 0 ? vBusiness : null)" />
                                 @if (eBusiness != null)
                                 {
@@ -160,8 +170,12 @@
                             </div>
 
                             <div class="flex flex-col gap-2">
-                                <label for="need" class="text-[14px] font-medium text-on-light">@cc["needLabel"]<span id="need-hint" class="ms-2 font-normal text-on-light-muted">— @cc["needHint"]</span></label>
-                                <textarea id="need" name="Need" rows="4" aria-invalid="@(eNeed != null ? "true" : null)" aria-describedby="@describedBy("need", true, eNeed)" class="@fieldCls(eNeed != null, true)" autofocus="@(focus == "need" ? "autofocus" : null)">@vNeed</textarea>
+                                <label for="need" class="text-[14px] font-medium text-on-light">
+                                    @cc["needLabel"]
+                                    <span class="required-indicator ms-1 text-red-600 font-bold" data-field="need">*</span>
+                                    <span id="need-hint" class="ms-2 font-normal text-on-light-muted">— @cc["needHint"]</span>
+                                </label>
+                                <textarea id="need" name="Need" rows="4" aria-invalid="@(eNeed != null ? "true" : null)" aria-describedby="@describedBy("need", true, eNeed)" aria-required="true" class="@fieldCls(eNeed != null, true)" autofocus="@(focus == "need" ? "autofocus" : null)">@vNeed</textarea>
                                 @if (eNeed != null)
                                 {
                                     <p id="need-error" class="text-[13px] text-red-700">@eNeed</p>
@@ -171,8 +185,11 @@
                             @if (!string.IsNullOrEmpty(Model.CaptchaQuestion))
                             {
                                 <div class="flex flex-col gap-2">
-                                    <label for="captcha" class="text-[14px] font-medium text-on-light">@Model.CaptchaQuestion</label>
-                                    <input id="captcha" name="captcha_answer" type="text" aria-invalid="@(eCaptcha != null ? "true" : null)" aria-describedby="@(eCaptcha != null ? "captcha-error" : null)" class="@fieldCls(eCaptcha != null, false)" inputmode="numeric" autofocus="@(focus == "captcha" ? "autofocus" : null)" />
+                                    <label for="captcha" class="text-[14px] font-medium text-on-light">
+                                        @Model.CaptchaQuestion
+                                        <span class="required-indicator ms-1 text-red-600 font-bold" data-field="captcha">*</span>
+                                    </label>
+                                    <input id="captcha" name="captcha_answer" type="text" aria-invalid="@(eCaptcha != null ? "true" : null)" aria-describedby="@(eCaptcha != null ? "captcha-error" : null)" aria-required="true" class="@fieldCls(eCaptcha != null, false)" inputmode="numeric" autofocus="@(focus == "captcha" ? "autofocus" : null)" />
                                     <input type="hidden" name="captcha_token" value="@Model.CaptchaToken" />
                                     @if (eCaptcha != null)
                                     {
@@ -193,6 +210,13 @@
 
                         <p class="mt-4 text-[12.5px] leading-[1.9] text-on-light-muted">@cc["privacyNote"]</p>
                     </form>
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+<script src="~/js/contact-form.js" asp-append-version="true"></script>
                 }
             </div>
         </div>
