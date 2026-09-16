@@ -43,6 +43,13 @@ public class IndexModel : ContentPageModel
 
     public void OnGet() 
     { 
+        // Restore success state from TempData
+        if (TempData["contact_submitted"] is string submitted && submitted == "true")
+        {
+            Submitted = true;
+            TempData.Remove("contact_submitted");
+        }
+
         // Restore errors from TempData (PRG pattern)
         if (TempData["contact_errors"] is string errorsJson)
         {
@@ -111,11 +118,9 @@ public class IndexModel : ContentPageModel
         try
         {
             await _leads.AddAsync(name, reach, business, service, need);
-            Submitted = true;
-            // Clear TempData on success
-            TempData.Remove("contact_errors");
-            // Don't redirect on success - show success message on same page
-            return Page();
+            // Redirect to GET to show success - completes PRG pattern
+            TempData["contact_submitted"] = "true";
+            return RedirectToPage();
         }
         catch (Exception ex)
         {
