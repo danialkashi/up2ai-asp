@@ -18,6 +18,9 @@
     var nav = c["navItems"];
     var contact = c["contact"];
     var f = c["copy"]["footer"];
+    
+    // Get Persian year from ViewData, with fallback to current year calculation if needed
+    var persianYear = ViewData["PersianYear"] as int? ?? new System.Globalization.PersianCalendar().GetYear(DateTime.Now);
 
     var ctaHref = site["cta"]["href"].S;
     var igLabel = f["social"]["instagram"].S;
@@ -34,8 +37,9 @@
                     || contact["whatsapp"].HasText;
 
     // معادل fill() از src/lib/copy.ts — فقط همان دو جای‌گیرِ این متن.
+    // سال به‌صورت dynamic از PersianCalendar محاسبه می‌شود نه از JSON
     var copyright = f["copyright"].S
-        .Replace("{year}", f["year"].S)
+        .Replace("{year}", persianYear.ToString())
         .Replace("{name}", site["name"].S);
 }<footer class="bg-ink">
     <div class="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16">

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using System.Globalization;
 using Up2Ai.Services;
 
 namespace Up2Ai.Pages;
@@ -17,11 +18,17 @@ public abstract class ContentPageModel : PageModel
     protected ContentPageModel(ContentStore store) => Store = store;
 
     public Cv C { get; private set; }
+    public int PersianYear { get; private set; }
 
     protected void LoadContent()
     {
         C = new Cv(Store.Get());
         ViewData["Content"] = C;
+        
+        // Calculate current Persian (Jalali) calendar year
+        var persianCalendar = new PersianCalendar();
+        PersianYear = persianCalendar.GetYear(DateTime.Now);
+        ViewData["PersianYear"] = PersianYear;
     }
 
     public override void OnPageHandlerExecuting(Microsoft.AspNetCore.Mvc.Filters.PageHandlerExecutingContext context)
