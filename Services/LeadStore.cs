@@ -1,7 +1,8 @@
 using System.Globalization;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
+using Up2Ai.Data;
 
 namespace Up2Ai.Services;
 
@@ -21,242 +22,111 @@ public static class LeadStatus
 public sealed class Lead
 {
     [JsonPropertyName("id")] public string Id { get; set; } = "";
-    [JsonPropertyName("at")] public string At { get; set; } = "";           // ISO timestamp (created)
+    [JsonPropertyName("at")] public string At { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("reach")] public string Reach { get; set; } = "";
     [JsonPropertyName("business")] public string Business { get; set; } = "";
     [JsonPropertyName("service")] public string Service { get; set; } = "";
     [JsonPropertyName("need")] public string Need { get; set; } = "";
-    
-    // New workflow fields - NO DEFAULT VALUES, must be set explicitly
     [JsonPropertyName("status")] public string? Status { get; set; }
     [JsonPropertyName("lastContactedAt")] public string? LastContactedAt { get; set; }
     [JsonPropertyName("internalNotes")] public string? InternalNotes { get; set; }
-    
-    // Old field: deserializes from "handled" but doesn't serialize back
     [JsonPropertyName("handled")] [JsonIgnore(Condition = JsonIgnoreCondition.WhenWriting)]
     public bool Handled { get; set; }
 }
 
-/// <summary>
-/// صندوق لید.
-///
-/// هر ارسالِ فرم تماس همین‌جا ذخیره می‌شود — صرف‌نظر از این‌که واتساپ/ایمیل پر
-/// شده باشد یا نه — تا هیچ لیدی بی‌سروصدا گم نشود. یک فایل JSON ساده است، نه
-/// پایگاه‌داده: حجم واقعی (چند ده لید در ماه) توجیه‌کننده‌ی پایگاه‌داده نیست.
-///
-/// ┌────────────────────────────────────────────────────────────────────────┐
-/// │ تفاوت مهم با نسخه‌ی Node: آن‌جا یک «صف درون‌فرآیندی» کافی بود، چون همه‌ی │
-/// │ درخواست‌ها در یک پردازه‌ی واحد اجرا می‌شدند. این‌جا ASP.NET درخواست‌ها را │
-/// │ هم‌زمان و چندنخی اجرا می‌کند و ممکن است چند نمونه از برنامه هم بالا     │
-/// │ باشد، پس قفل واقعیِ فایل لازم است — نه قفل درون‌حافظه‌ای.                │
-/// │ این‌جا هر دو گذاشته شده: یک قفل نخی برای داخل همین پردازه، و یک قفل     │
-/// │ روی خود فایل (FileShare.None با تلاش مجدد) برای بین پردازه‌ها.          │
-/// └────────────────────────────────────────────────────────────────────────┘
-/// </summary>
 public sealed class LeadStore
 {
-    private static readonly SemaphoreSlim Gate = new(1, 1);
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.Never,  // Write all fields, even if they have default values
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    };
-
-    private readonly string _dataDir;
+    private readonly AppDbContext _db;
     private readonly ILogger<LeadStore> _log;
 
-    public LeadStore(IWebHostEnvironment env, IConfiguration config, ILogger<LeadStore> log)
+    public LeadStore(AppDbContext db, ILogger<LeadStore> log)
     {
+        _db = db;
         _log = log;
-        _dataDir = config["UP2AI_DATA_DIR"] ?? Path.Combine(env.ContentRootPath, "data");
     }
 
-    private string File_ => Path.Combine(_dataDir, "leads.json");
-
-    private List<Lead> ReadAllUnlocked()
+    public async Task<Lead> AddAsync(string name, string reach, string business, string service, string need)
     {
-        // If file doesn't exist, that's normal on first run — return empty list
-        if (!File.Exists(File_)) return new List<Lead>();
+        var entity = new LeadEntity
+        {
+            Id = Guid.NewGuid().ToString(),
+            CreatedAt = DateTimeOffset.UtcNow,
+            Name = name.Trim(),
+            Reach = reach.Trim(),
+            Business = string.IsNullOrWhiteSpace(business) ? null : business.Trim(),
+            Service = service.Trim(),
+            Need = need.Trim(),
+            Status = LeadStatus.New,
+            InternalNotes = null,
+            LastContactedAt = null,
+        };
 
-        try
-        {
-            var raw = File.ReadAllText(File_);
-            var parsed = JsonSerializer.Deserialize<List<Lead>>(raw);
-            if (parsed is null)
-            {
-                _log.LogError("[leads] Failed to deserialize leads.json: deserialization returned null");
-                throw new InvalidOperationException("Invalid leads data structure");
-            }
-            
-            // One-time migration: if raw JSON contains "handled" field, migrate to new format
-            bool needsRewrite = raw.Contains("\"handled\"");
-            
-            foreach (var lead in parsed)
-            {
-                // Migrate: handled → status (only if status is empty/null)
-                if (string.IsNullOrEmpty(lead.Status))
-                {
-                    lead.Status = lead.Handled ? LeadStatus.Done : LeadStatus.New;
-                    needsRewrite = true;
-                }
-            }
-            
-            // Persist migration (one-time operation per file)
-            if (needsRewrite)
-            {
-                WriteAllUnlocked(parsed);
-                _log.LogInformation("[leads] Migrated {Count} leads to new workflow format", parsed.Count);
-            }
-            
-            // Validate and filter
-            return parsed.Where(l =>
-            {
-                if (IsValid(l)) return true;
-                _log.LogWarning("[leads] Skipping invalid lead record: {LeadId}", l?.Id ?? "<null>");
-                return false;
-            }).ToList();
-        }
-        catch (JsonException ex)
-        {
-            _log.LogError(ex, "[leads] Failed to parse leads.json: invalid JSON format");
-            throw new InvalidOperationException("Lead store data is corrupted", ex);
-        }
-        catch (IOException ex)
-        {
-            _log.LogError(ex, "[leads] I/O error reading leads.json");
-            throw new InvalidOperationException("Unable to read lead store", ex);
-        }
+        _db.Leads.Add(entity);
+        await _db.SaveChangesAsync();
+
+        return entity.ToModel();
     }
 
-    private static bool IsValid(Lead? l) =>
-        l is not null && l.Id.Length > 0 && l.At.Length > 0 && l.Name.Length > 0;
-
-    private void WriteAllUnlocked(List<Lead> leads)
+    public async Task<List<Lead>> ListAsync()
     {
-        Directory.CreateDirectory(_dataDir);
-        var tmp = $"{File_}.{Environment.ProcessId}.tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(leads, JsonOpts));
-        File.Move(tmp, File_, overwrite: true);
+        var rows = await _db.Leads
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .ToListAsync();
+
+        return rows.Select(x => x.ToModel()).ToList();
     }
 
-    /// <summary>
-    /// قفل بین‌پردازه‌ای: یک فایل قفل جدا باز می‌شود با FileShare.None. اگر
-    /// پردازه‌ی دیگری آن را گرفته باشد، کمی صبر و دوباره تلاش می‌کنیم.
-    /// </summary>
-    private async Task<T> WithLockAsync<T>(Func<T> body)
+    public List<Lead> List() => ListAsync().GetAwaiter().GetResult();
+
+    public async Task<bool> SetStatusAsync(string id, string status)
     {
-        await Gate.WaitAsync();
-        try
-        {
-            Directory.CreateDirectory(_dataDir);
-            var lockPath = Path.Combine(_dataDir, ".leads.lock");
-            for (var attempt = 0; attempt < 50; attempt++)
-            {
-                try
-                {
-                    using var handle = new FileStream(
-                        lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-                    return body();
-                }
-                catch (IOException)
-                {
-                    await Task.Delay(20);
-                }
-            }
-            // بعد از یک ثانیه تلاش، بدون قفل ادامه می‌دهیم تا درخواست کاربر گم
-            // نشود؛ قفل نخی داخل همین پردازه هنوز برقرار است.
-            _log.LogWarning("[leads] قفل فایل گرفته نشد، بدون قفل بین‌پردازه‌ای ادامه داده شد");
-            return body();
-        }
-        finally
-        {
-            Gate.Release();
-        }
+        if (!LeadStatus.IsValid(status)) return false;
+
+        var entity = await _db.Leads.FindAsync(id);
+        if (entity is null) return false;
+
+        entity.Status = status;
+        await _db.SaveChangesAsync();
+        return true;
     }
 
-    public Task<Lead> AddAsync(string name, string reach, string business, string service, string need) =>
-        WithLockAsync(() =>
-        {
-            var leads = ReadAllUnlocked();
-            var lead = new Lead
-            {
-                Id = Guid.NewGuid().ToString(),
-                At = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture),
-                Status = LeadStatus.New,
-                Name = name,
-                Reach = reach,
-                Business = business,
-                Service = service,
-                Need = need,
-            };
-            leads.Add(lead);
-            WriteAllUnlocked(leads);
-            return lead;
-        });
+    public async Task<bool> SetContactedAsync(string id)
+    {
+        var entity = await _db.Leads.FindAsync(id);
+        if (entity is null) return false;
 
-    /// <summary>تازه‌ترین بالا.</summary>
-    public List<Lead> List() =>
-        ReadAllUnlocked()
-            .OrderByDescending(l => l.At, StringComparer.Ordinal)
-            .ToList();
+        entity.LastContactedAt = DateTimeOffset.UtcNow;
+        entity.Status = LeadStatus.Contacted;
+        await _db.SaveChangesAsync();
+        return true;
+    }
 
-    /// <summary>تغییر وضعیت لید.</summary>
-    public Task<bool> SetStatusAsync(string id, string status) =>
-        WithLockAsync(() =>
-        {
-            if (!LeadStatus.IsValid(status)) return false;
-            var leads = ReadAllUnlocked();
-            var lead = leads.FirstOrDefault(l => l.Id == id);
-            if (lead is null) return false;
-            lead.Status = status;
-            WriteAllUnlocked(leads);
-            return true;
-        });
+    public async Task<bool> SetNotesAsync(string id, string? notes)
+    {
+        var entity = await _db.Leads.FindAsync(id);
+        if (entity is null) return false;
 
-    /// <summary>علامت‌گذاری کردن «تماس گرفته شد» — به‌روز رسانی زمان آخرین تماس.</summary>
-    public Task<bool> SetContactedAsync(string id) =>
-        WithLockAsync(() =>
-        {
-            var leads = ReadAllUnlocked();
-            var lead = leads.FirstOrDefault(l => l.Id == id);
-            if (lead is null) return false;
-            lead.LastContactedAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
-            WriteAllUnlocked(leads);
-            return true;
-        });
+        var maxNotes = 5000;
+        if (!string.IsNullOrEmpty(notes) && notes.Length > maxNotes)
+            notes = notes.Substring(0, maxNotes);
 
-    /// <summary>ویرایش یادداشت‌های داخلی برای یک لید.</summary>
-    public Task<bool> SetNotesAsync(string id, string? notes) =>
-        WithLockAsync(() =>
-        {
-            var leads = ReadAllUnlocked();
-            var lead = leads.FirstOrDefault(l => l.Id == id);
-            if (lead is null) return false;
-            
-            // Limit notes to reasonable size
-            var maxNotes = 5000;
-            if (!string.IsNullOrEmpty(notes) && notes.Length > maxNotes)
-                notes = notes.Substring(0, maxNotes);
-            
-            lead.InternalNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
-            WriteAllUnlocked(leads);
-            return true;
-        });
+        entity.InternalNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        await _db.SaveChangesAsync();
+        return true;
+    }
 
-    /// <summary>حذف یک لید — فقط از پنل مدیریت (مثلاً برای ورودی‌های آزمایشی/اسپم).</summary>
-    public Task<bool> DeleteAsync(string id) =>
-        WithLockAsync(() =>
-        {
-            var leads = ReadAllUnlocked();
-            var next = leads.Where(l => l.Id != id).ToList();
-            if (next.Count == leads.Count) return false;
-            WriteAllUnlocked(next);
-            return true;
-        });
+    public async Task<bool> DeleteAsync(string id)
+    {
+        var entity = await _db.Leads.FindAsync(id);
+        if (entity is null) return false;
 
-    /// <summary>خروجی CSV — با BOM تا اکسل فارسی را درست نشان بدهد.</summary>
+        _db.Leads.Remove(entity);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
     public static string ToCsv(IEnumerable<Lead> leads)
     {
         var fa = new CultureInfo("fa-IR");
@@ -267,22 +137,20 @@ public sealed class LeadStore
 
         foreach (var l in leads)
         {
-            var when = DateTime.TryParse(l.At, CultureInfo.InvariantCulture,
-                DateTimeStyles.RoundtripKind, out var dt)
-                ? dt.ToLocalTime().ToString(fa)
+            var when = DateTimeOffset.TryParse(l.At, out var dt)
+                ? dt.ToLocalTime().ToString("d MMMM yyyy'، 'H:mm", fa)
                 : l.At;
-            
-            var lastContacted = string.IsNullOrEmpty(l.LastContactedAt) 
-                ? "" 
-                : (DateTime.TryParse(l.LastContactedAt, CultureInfo.InvariantCulture,
-                    DateTimeStyles.RoundtripKind, out var ldt)
-                    ? ldt.ToLocalTime().ToString(fa)
+
+            var lastContacted = string.IsNullOrEmpty(l.LastContactedAt)
+                ? ""
+                : (DateTimeOffset.TryParse(l.LastContactedAt, out var ldt)
+                    ? ldt.ToLocalTime().ToString("d MMMM yyyy'، 'H:mm", fa)
                     : l.LastContactedAt);
-            
+
             lines.Add(string.Join(",", new[]
             {
-                when, l.Name, l.Reach, l.Business, l.Service, l.Need, 
-                StatusToPersian(l.Status), lastContacted, l.InternalNotes ?? "",
+                when, l.Name, l.Reach, l.Business, l.Service, l.Need,
+                StatusToPersian(l.Status ?? LeadStatus.New), lastContacted, l.InternalNotes ?? "",
             }.Select(Esc)));
         }
 

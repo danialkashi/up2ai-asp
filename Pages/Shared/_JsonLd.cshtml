@@ -15,7 +15,10 @@
     //
     // `sameAs` فقط شبکه‌هایی را می‌آورد که واقعاً پر شده‌اند؛ لینک خالی به
     // گوگل داده نمی‌شود.
-    var c = (Cv)ViewData["Content"]!;
+    // صفحه‌ی خطا و صفحات بدون محتوای اصلی ممکن است `ViewData["Content"]` نداشته
+    // باشند؛ در آن حالت باید همان قرارداد لایه‌ی بالاتر را حفظ کنیم و با
+    // `new Cv(null)` ادامه دهیم تا استثنا از JSON-LD به‌جای خطای صفحه ظاهر نشود.
+    var c = ViewData["Content"] as Cv? ?? new Cv(null);
     var site = c["site"];
     var contact = c["contact"];
     var url = site["url"].S;
