@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/up2ai-asp.csproj" />
+  </Folder>
+</Solution>

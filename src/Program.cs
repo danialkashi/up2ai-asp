@@ -1,4 +1,4 @@
-﻿using Up2Ai.Data;
+using Up2Ai.Data;
 using Up2Ai.Services;
 using Microsoft.EntityFrameworkCore;
 
