@@ -1,4 +1,6 @@
+﻿using Up2Ai.Data;
 using Up2Ai.Services;
+using Microsoft.EntityFrameworkCore;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // حالت خط فرمان: ساخت هش رمز پنل مدیریت.
@@ -29,8 +31,18 @@ builder.Services.Configure<Microsoft.Extensions.WebEncoders.WebEncoderOptions>(o
 
 builder.Services.AddRazorPages();
 builder.Services.AddSingleton<ContentStore>();
-builder.Services.AddSingleton<LeadStore>();
 builder.Services.AddSingleton<AdminAuth>();
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? Environment.GetEnvironmentVariable("UP2AI_POSTGRES_CONNECTION")
+    ?? throw new InvalidOperationException("PostgreSQL connection string is missing. Set ConnectionStrings:DefaultConnection or UP2AI_POSTGRES_CONNECTION.");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    options.UseNpgsql(connectionString);
+});
+
+builder.Services.AddScoped<LeadStore>();
 builder.Services.AddAntiforgery();
 
 var app = builder.Build();
@@ -38,6 +50,9 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
+    
+    // ForwardedHeaders: support reverse proxy (Nginx, Apache) that sends X-Forwarded-* headers
+    app.UseForwardedHeaders();
     
     // HSTS: tell browsers to always use HTTPS for this domain
     app.UseHsts();
