@@ -5,6 +5,12 @@ publish/
 # رمز پنل و رازِ نشست — هرگز نباید وارد مخزن شود
 .env
 # ویرایش‌های پنل و لیدها؛ روی سرور می‌مانند، نه در گیت
-data/
+# این پوشه شامل داده‌های محلیِ اپلیکیشن است، اما فایل‌های منبع معتبر EF نیز به اشتباه داخل آن قرار گرفته‌اند.
+data/*
+!data/
+!data/AppDbContext.cs
+!data/LeadEntity.cs
+!data/AppDbContextFactory.cs
+data/.leads.lock
 # فقط برای ساخت CSS روی ماشین توسعه — لازمِ اجرا نیست
 node_modules/
