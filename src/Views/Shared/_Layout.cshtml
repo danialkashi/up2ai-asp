@@ -247,6 +247,10 @@
     @RenderBody()
     <script src="https://support-panel.startup.makeup/widget.js" data-public-widget-id="27e57e55271843c09b67a529c26a858e" defer></script>
     @await RenderSectionAsync("Scripts", required: false)
+    @* ویجت پشتیبانی فقط برای بازدیدکننده‌های سایت عمومی؛ پنل مدیریت لایوت
+       دیگری دارد و این‌جا را نمی‌بیند. بیرون از RenderBody تا خود صفحه
+       همیشه آخرین چیزی باشد که به DOM می‌آید. *@
+    <partial name="_SupportWidget" />
 </body>
 </html>
 

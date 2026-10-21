@@ -17,6 +17,15 @@ public class PostEditViewModel
     public string? Error { get; set; }
     public string? Saved { get; set; }
     public string PreviewHtml { get; set; } = "";
+
+    /// <summary>
+    /// مقدار اولیه‌ی ادیتور — همیشه HTML.
+    /// نوشته‌های قدیمی مارک‌داون‌اند؛ اگر همان مارک‌داون خام به CKEditor داده
+    /// شود، «## تیتر» به‌جای تیتر، متنِ لِه‌شده دیده می‌شود و با اولین ذخیره
+    /// به HTMLِ خراب تبدیل می‌شود. اینجا یک‌جا عادی می‌شود.
+    /// </summary>
+    public string EditorHtml { get; set; } = "";
+
     public string SavedSlug { get; set; } = "";
     public bool SavedPublished { get; set; }
 
@@ -32,6 +41,7 @@ public class PostEditViewModel
         CommentsOpen = post.CommentsOpen;
         SavedSlug = post.Slug;
         SavedPublished = post.Published;
-        PreviewHtml = MiniMarkdown.ToHtml(post.Body);
+        PreviewHtml = MiniMarkdown.BodyToHtml(post.Body);
+        EditorHtml = MiniMarkdown.BodyToHtml(post.Body);
     }
 }

@@ -1,0 +1,26 @@
+@inject IConfiguration Config
+@{
+    // ویجت چت آنلاین «پشتیبان من» (support.startup.makeup).
+    //
+    // شناسه‌ی ویجت مقدار پیش‌فرضش در appsettings است و روی سرور می‌شود با
+    // متغیر محیطی
+    //     SupportChat__WidgetId
+    // override‌اش کرد. این شناسه یک data-public-widget-id است — یعنی خودِ
+    // سرویس آن را برای چسباندن به HTML عمومی طراحی کرده، پس راز نیست.
+    // تا وقتی خالی باشد هیچ چیزی رندر نمی‌شود و صفحه هیچ درخواستی به بیرون
+    // نمی‌فرستد — این‌طوری محیط توسعه و استقرارِ بدون چت، بی‌صدا تمیز می‌ماند.
+    //
+    // این partial فقط از _Layout (سایت عمومی) فراخوانی می‌شود؛ لایوتِ پنل
+    // مدیریت (_AdminLayout) آن را صدا نمی‌زند، پس حبابِ چت هیچ‌وقت وسط کارِ
+    // ادمین ظاهر نمی‌شود.
+    var widgetId = Config["SupportChat:WidgetId"]?.Trim();
+    var scriptSrc = Config["SupportChat:ScriptSrc"]?.Trim();
+    if (string.IsNullOrWhiteSpace(scriptSrc))
+        scriptSrc = "https://support-panel.startup.makeup/widget.js";
+}
+@if (!string.IsNullOrWhiteSpace(widgetId))
+{
+    @* defer (همان چیزی که خودِ سرویس توصیه می‌کند) تا بارگذاری‌اش هرگز
+       رندر صفحه را نگه ندارد؛ ویجت هم خودش بعد از DOM آماده می‌شود. *@
+    <script src="@scriptSrc" data-public-widget-id="@widgetId" defer></script>
+}

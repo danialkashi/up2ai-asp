@@ -288,6 +288,10 @@ public static class AdminLabels
         // وبلاگ
         ["blog"] = "وبلاگ", ["pageSize"] = "تعداد نوشته در هر صفحه", ["empty"] = "متن وقتی چیزی نیست",
         ["readMore"] = "متن لینک ادامه‌ی نوشته", ["backToList"] = "متن بازگشت به فهرست",
+        ["relatedHeading"] = "تیتر مطالب مرتبط", ["relatedCta"] = "متن لینک کارتِ مرتبط",
+        ["servicesCta"] = "تیتر دعوت به مشاوره در صفحه‌ی نوشته",
+        ["servicesCtaNote"] = "توضیحِ دعوت به مشاوره",
+        ["servicesCtaButton"] = "متن دکمه‌ی دعوت به مشاوره",
         ["readingTime"] = "زمان خواندن", ["updatedOn"] = "برچسب آخرین ویرایش",
         ["tagsHeading"] = "تیتر برچسب‌ها", ["commentsHeading"] = "تیتر بخش نظرها", ["commentsCount"] = "شمارش نظرها در فهرست",
         ["commentsEmpty"] = "متن وقتی نظری نیست", ["commentsClosed"] = "متن وقتی نظرها بسته است",

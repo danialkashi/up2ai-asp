@@ -94,6 +94,49 @@
         </div>
     </article>
 
+    @* ----------------------- دعوت به مشاوره -----------------------
+       پایانِ هر نوشته، نزدیک‌ترین نقطه به ذهنِ مخاطبِ علاقه‌مند است:
+       همین حالا که فهمید ایجنت چه می‌کند، راه تماس جلوی چشمش باشد نه
+       سه اسکرول پایین‌تر در فوتر. لنگرهای #contact و #services به
+       «/#…» تبدیل می‌شوند — این‌جا صفحه‌ی اصلی نیستیم. *@
+    <section class="border-b border-hairline bg-ink" aria-labelledby="post-cta-heading">
+        <div class="mx-auto max-w-3xl px-4 py-14 sm:px-6 sm:py-16">
+            <h2 id="post-cta-heading" class="text-[1.5rem] font-bold leading-[1.6] text-white sm:text-[1.75rem]">@b["servicesCta"]</h2>
+            <p class="mt-3 max-w-xl text-[14.5px] leading-[2] text-on-dark-muted">@b["servicesCtaNote"]</p>
+            <div class="mt-7 flex flex-wrap gap-3">
+                <a href="@SiteLinks.Resolve("#contact", Context.Request.Path.Value)" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-6 py-3 text-[15px] font-medium text-white shadow-[0_10px_30px_-10px_rgba(99,102,241,0.7)] transition-transform duration-200 hover:-translate-y-0.5">@b["servicesCtaButton"]</a>
+                <a href="@SiteLinks.Resolve("#services", Context.Request.Path.Value)" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-white/15 px-6 py-3 text-[14px] font-medium text-on-dark transition-colors hover:border-white/30">@c["copy"]["hero"]["secondaryCta"]</a>
+            </div>
+        </div>
+    </section>
+
+    @* ------------------------- مطالب مرتبط -------------------------
+       انتخابش در کنترلر انجام می‌شود (برچسبِ مشترک، بعد تازه‌ترین‌ها).
+       کارت‌ها لینکِ معمولی‌اند تا خزنده هم دنبالشان برود. *@
+    @if (Model.Related.Count > 0)
+    {
+        <section class="border-b border-hairline bg-surface" aria-labelledby="related-heading">
+            <div class="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+                <h2 id="related-heading" class="text-[1.35rem] font-bold text-on-light">@b["relatedHeading"]</h2>
+                <ul class="mt-6 grid gap-4 sm:grid-cols-3">
+                    @foreach (var rel in Model.Related)
+                    {
+                        <li>
+                            <a href="/blog/@Uri.EscapeDataString(rel.Slug)" class="flex h-full flex-col rounded-2xl border border-hairline bg-card p-5 transition-colors hover:border-brand/35">
+                                <time datetime="@rel.PublishedAt" class="text-[12.5px] text-on-light-muted">@PersianYear.FormatDate(rel.PublishedAt)</time>
+                                <h3 class="mt-2 text-[15.5px] font-bold leading-[1.8] text-on-light">@rel.Title</h3>
+                                <span class="mt-auto inline-flex items-center gap-1.5 pt-4 text-[13px] font-medium text-brand-ink">
+                                    @b["relatedCta"]
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="h-4 w-4"><path d="M19 12H5"></path><path d="m11 6-6 6 6 6"></path></svg>
+                                </span>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </section>
+    }
+
     @* ---------------------------- نظرها ---------------------------- *@
     <section id="comments" class="border-b border-hairline bg-surface-2">
         <div class="mx-auto max-w-3xl px-4 py-14 sm:px-6 sm:py-16">
@@ -164,7 +207,7 @@
                             <label for="@FormGuard.AnswerField" class="text-[14px] font-medium text-on-light">@c["copy"]["contact"]["captchaLabel"]</label>
                             <div class="flex items-center gap-3">
                                 <span class="shrink-0 select-none" role="img" aria-label="@c["copy"]["contact"]["captchaAria"].S.Replace("{0}", Model.Captcha.Question)">@Html.Raw(CaptchaSvg.Render(Model.Captcha.Question))</span>
-                                <input id="@FormGuard.AnswerField" name="@FormGuard.AnswerField" type="text" inputmode="numeric" autocomplete="off"
+                                <input id="@FormGuard.AnswerField" name="CaptchaAnswer" type="text" inputmode="numeric" autocomplete="off"
                                        aria-invalid="@(eCaptcha != null ? "true" : null)" aria-describedby="@(eCaptcha != null ? "comment-captcha-error" : null)"
                                        class="@fieldCls(eCaptcha != null, false)" value="" />
                             </div>
@@ -175,13 +218,18 @@
                         </div>
                     </div>
 
-                    <input type="hidden" name="@FormGuard.TokenField" value="@Model.Captcha.Token" />
-                    <input type="hidden" name="@FormGuard.StartedField" value="@Model.FormStamp" />
+                    @* نام‌های این سه فیلد باید با پراپرتی‌های BlogPostViewModel یکی
+                       باشد (CaptchaToken / StartedStamp / Honeypot) — وگرنه بایندر
+                       مدل آن‌ها را نمی‌بیند و FormGuard همه‌ی نظرها را «اسپم» می‌گیرد.
+                       (این باگ واقعی بود: فرم با cap_t/cap_s پست می‌شد و هر نظری از
+                       مرورگر واقعی رد می‌شد.) *@
+                    <input type="hidden" name="CaptchaToken" value="@Model.Captcha.Token" />
+                    <input type="hidden" name="StartedStamp" value="@Model.FormStamp" />
 
                     @* فیلدِ تله — نه دیده می‌شود نه با Tab به آن می‌رسی. *@
                     <div aria-hidden="true" class="absolute -left-[9999px] h-0 w-0 overflow-hidden">
                         <label for="@FormGuard.HoneypotField">وب‌سایت (خالی بماند)</label>
-                        <input id="@FormGuard.HoneypotField" name="@FormGuard.HoneypotField" type="text" tabindex="-1" autocomplete="off" value="" />
+                        <input id="@FormGuard.HoneypotField" name="Honeypot" type="text" tabindex="-1" autocomplete="off" value="" />
                     </div>
 
                     <button type="submit" class="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-gradient-to-l from-brand-deep to-brand-2-deep px-6 py-3 text-[15px] font-medium text-white shadow-[0_10px_30px_-10px_rgba(99,102,241,0.7)] transition-transform duration-200 hover:-translate-y-0.5">@b["commentSubmit"]</button>

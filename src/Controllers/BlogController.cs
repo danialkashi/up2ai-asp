@@ -80,6 +80,7 @@ public class BlogController : Controller
             Post = post,
             Comments = _blog.ApprovedFor(post.Id),
             BodyHtml = MiniMarkdown.BodyToHtml(post.Body),
+            Related = PickRelated(post, _blog.Published()),
             Captcha = _guard.NewChallenge(),
             FormStamp = _guard.StampNow(),
         };
@@ -89,6 +90,31 @@ public class BlogController : Controller
             model.JustSubmitted = true;
 
         return View(model);
+    }
+
+    /// <summary>
+    /// انتخابِ نوشته‌های مرتبط برای بلوکِ پایانِ صفحه‌ی نوشته.
+    ///
+    /// معیار، هم‌پوشانیِ برچسب‌هاست: هر برچسبِ مشترک یک امتیاز. نوشته‌های
+    /// بی‌برچسبِ مشترک هم می‌آیند ولی از تازه به قدیمی، بعد از مرتبط‌ها
+    /// (بازدیدکننده به‌هرحال چیزِ تازه‌ی سایت را ببیند). خودِ نوشته همیشه
+    /// از فهرست حذف می‌شود.
+    /// </summary>
+    private static List<Post> PickRelated(Post current, List<Post> published)
+    {
+        var tags = current.Tags
+            .Select(t => t.Trim())
+            .Where(t => t.Length > 0)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return published
+            .Where(p => p.Id != current.Id)
+            .Select(p => (Post: p, Score: p.Tags.Count(t => tags.Contains(t))))
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.Post.PublishedAt, StringComparer.Ordinal)
+            .Take(3)
+            .Select(x => x.Post)
+            .ToList();
     }
 
     /// <summary>Submit a comment on a blog post</summary>

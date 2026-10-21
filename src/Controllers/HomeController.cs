@@ -120,11 +120,14 @@ public class HomeController : Controller
         var ip = RequestIp();
 
         // Layer 1: Honeypot and rate limiting (cheap checks first)
+        //
+        // ریدایرکت به /#contact نه / — تا پیام خطا همان‌جا که فرم است دیده شود،
+        // نه بالای صفحه‌ی طولانی که کاربر باید خودش اسکرول کند.
         if (_guard.HoneypotTripped(model.Honeypot) || _guard.FilledTooFast(model.StartedStamp))
         {
             _log.LogInformation("[leads] Suspicious submission rejected (honeypot/timing) from {Ip}", ip);
             TempData["lead.error"] = errors["spam"].S;
-            return RedirectToAction(nameof(Index));
+            return Redirect("/#contact");
         }
 
         // Layer 2: Send rate limit per IP
@@ -132,7 +135,7 @@ public class HomeController : Controller
         {
             _log.LogInformation("[leads] Send limit exceeded for {Ip}", ip);
             TempData["lead.error"] = errors["tooMany"].S;
-            return RedirectToAction(nameof(Index));
+            return Redirect("/#contact");
         }
 
         // Layer 3: CAPTCHA
@@ -176,7 +179,7 @@ public class HomeController : Controller
         {
             _log.LogError(ex, "[leads] CRITICAL: Failed to save lead - name={Name}, reach={Reach}", name, reach);
             TempData["lead.error"] = cc["errorNote"].S;
-            return RedirectToAction(nameof(Index));
+            return Redirect("/#contact");
         }
     }
 
@@ -246,6 +249,10 @@ public class HomeController : Controller
             OriginalStatusCode = statusCode ?? Response.StatusCode,
         };
 
-        return View(model);
+        // View("Error") نمی‌گذاریم چون Shared/Error.cshtml انگلیسیِ پیش‌فرضِ قالب
+        // است و نام «Error» همیشه همان را برمی‌دارد. صفحه‌ی فارسیِ خودمان
+        // (۴۰۴/۵۰۰ با متن از محتوا) در Views/Error/Index.cshtml است و باید
+        // صریح آدرس داده شود.
+        return View("~/Views/Error/Index.cshtml", model);
     }
 }

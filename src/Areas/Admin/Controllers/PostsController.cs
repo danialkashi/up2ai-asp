@@ -115,15 +115,17 @@ public class PostsController : Controller
         var title = (model.Title ?? "").Trim();
         if (title.Length < 3)
         {
-            model.Error = "Post title must be at least 3 characters.";
+            model.Error = "عنوان نوشته باید حداقل ۳ حرف باشد.";
             model.PreviewHtml = BodyToHtml(model.Body);
+            model.EditorHtml = model.PreviewHtml;
             return View("Edit", model);
         }
 
         if ((model.Body ?? "").Trim().Length < 20)
         {
-            model.Error = "Post body is too short.";
+            model.Error = "متن نوشته خیلی کوتاه است؛ حداقل ۲۰ حرف بنویس.";
             model.PreviewHtml = BodyToHtml(model.Body);
+            model.EditorHtml = model.PreviewHtml;
             return View("Edit", model);
         }
 
