@@ -4,7 +4,7 @@
     var fieldCls = "w-full rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors placeholder:text-on-light-muted focus:border-brand";
 }
 
-<link rel="stylesheet" href="https://cdn.ckeditor.com/ckeditor5/43.3.1/ckeditor5.css" crossorigin="anonymous">
+<link rel="stylesheet" href="/lib/ckeditor5/ckeditor5.css">
 <style>
     .ck-editor__editable_inline { min-height: 420px; }
     .ck.ck-editor { border-radius: 0.75rem; }
@@ -121,14 +121,16 @@
     }
 </div>
 
-@* نسخه‌ی 43 آخرین نسخه‌ای است که از CDN بدون کلید لایسنس کار می‌کند. *@
-<script src="https://cdn.ckeditor.com/ckeditor5/43.3.1/ckeditor5.umd.js" crossorigin="anonymous"></script>
-<script src="https://cdn.ckeditor.com/ckeditor5/43.3.1/translations/fa.umd.js" crossorigin="anonymous"></script>
+@* فایل‌های CKEditor 43.3.1 داخل خودِ پروژه (wwwroot/lib) هستند، نه CDN؛ cdn.ckeditor.com از ایران در دسترس نیست. *@
+<script src="/lib/ckeditor5/ckeditor5.umd.js"></script>
+<script src="/lib/ckeditor5/translations/fa.umd.js"></script>
 <script>
     const C = window.CKEDITOR;
     const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
-    C.ClassicEditor.create(document.getElementById('body'), {
+    // اگر فایل ویرایشگر لود نشود، همان textarea ساده می‌ماند و فرم همچنان کار می‌کند.
+    if (!C) document.getElementById('word-count').textContent = 'ویرایشگر بارگذاری نشد؛ متن را در همین کادر بنویسید.';
+    else C.ClassicEditor.create(document.getElementById('body'), {
         plugins: [
             C.Essentials, C.Paragraph, C.Heading, C.Autoformat, C.TextTransformation, C.PasteFromOffice,
             C.Bold, C.Italic, C.Underline, C.Strikethrough, C.Subscript, C.Superscript, C.Code, C.RemoveFormat,
