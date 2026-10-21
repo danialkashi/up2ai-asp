@@ -27,6 +27,8 @@
     var ogType = ViewData["OgType"] as string ?? "website";
     var articlePublished = ViewData["ArticlePublished"] as string;
     var articleModified = ViewData["ArticleModified"] as string;
+    // تصویرِ اختصاصیِ صفحه (مثلاً اولین تصویرِ نوشته)؛ نبود، تصویرِ عمومیِ ۱۲۰۰×۶۳۰.
+    var ogImage = ViewData["OgImage"] as string;
 }<!DOCTYPE html>
 <html lang="fa" dir="rtl" class="h-full">
 <head>
@@ -58,10 +60,13 @@
         <meta property="og:description" content="@description" />
         <meta property="og:site_name" content="@site["name"]" />
         <meta property="og:locale" content="fa_IR" />
-        <meta property="og:image" content="@(url)/opengraph-image.png" />
-        <meta property="og:image:type" content="image/png" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
+        <meta property="og:image" content="@(ogImage ?? $"{url}/opengraph-image.png")" />
+        @if (ogImage is null)
+        {
+            <meta property="og:image:type" content="image/png" />
+            <meta property="og:image:width" content="1200" />
+            <meta property="og:image:height" content="630" />
+        }
         <meta property="og:url" content="@canonical" />
         <meta property="og:type" content="@ogType" />
         @if (articlePublished is not null)
@@ -75,10 +80,13 @@
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="@ogTitle" />
         <meta name="twitter:description" content="@description" />
-        <meta name="twitter:image" content="@(url)/opengraph-image.png" />
-        <meta name="twitter:image:type" content="image/png" />
-        <meta name="twitter:image:width" content="1200" />
-        <meta name="twitter:image:height" content="630" />
+        <meta name="twitter:image" content="@(ogImage ?? $"{url}/opengraph-image.png")" />
+        @if (ogImage is null)
+        {
+            <meta name="twitter:image:type" content="image/png" />
+            <meta name="twitter:image:width" content="1200" />
+            <meta name="twitter:image:height" content="630" />
+        }
     }
     <link rel="icon" href="~/icon.svg" sizes="any" type="image/svg+xml" />
     @if (!noIndex)

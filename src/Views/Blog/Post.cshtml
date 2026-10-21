@@ -19,6 +19,7 @@
     ViewData["OgType"] = "article";
     ViewData["ArticlePublished"] = post.PublishedAt;
     ViewData["ArticleModified"] = post.UpdatedAt;
+    ViewData["OgImage"] = Model.ImageUrl(baseUrl);
 
     Model.FieldErrors.TryGetValue("name", out var eName);
     Model.FieldErrors.TryGetValue("body", out var eBody);

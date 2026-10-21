@@ -45,12 +45,27 @@ public class BlogPostViewModel
     /// می‌شود و خروجی‌اش با مقاله‌ی Organization/WebSite در <c>@graph</c>
     /// همپوشانی ندارد — در <c>@graph</c> هویتِ سایت است، این‌جا خودِ نوشته.
     /// </summary>
+    /// <summary>
+    /// آدرسِ کاملِ اولین تصویرِ متنِ نوشته، برای og:image و schema؛ اگر تصویری نبود null.
+    /// </summary>
+    public string? ImageUrl(string baseUrl)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(
+            BodyHtml, "<img[^>]+src=\"([^\"]+)\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!m.Success) return null;
+        var src = System.Net.WebUtility.HtmlDecode(m.Groups[1].Value);
+        if (src.StartsWith("//")) return "https:" + src;
+        if (src.StartsWith("/")) return baseUrl + src;
+        return src.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? src : null;
+    }
+
     public string ArticleJsonLd(string baseUrl, string postUrl)
     {
         var site = C["site"];
 
         // image: بدون آن، Rich Results هشدار «missing field image» می‌دهد.
-        var image = $"{baseUrl}/opengraph-image.png";
+        // تصویرِ خودِ نوشته بهتر است؛ نبود، تصویرِ عمومیِ سایت.
+        var image = ImageUrl(baseUrl) ?? $"{baseUrl}/opengraph-image.png";
 
         // تله‌ی شناخته‌شده‌ی JsonNode: یک نمونه نمی‌تواند دو جا پدر داشته
         // باشد (author و publisher) — دفعه‌ی دوم هنگام انتساب استثنا می‌دهد.
@@ -102,7 +117,30 @@ public class BlogPostViewModel
             node["commentCount"] = JsonValue.Create(Comments.Count);
         }
 
-        return node.ToJsonString(new JsonSerializerOptions
+        // بدون @context کلِ بلوک برای گوگل بی‌معناست (قبلاً نبود).
+        // BreadcrumbList همان مسیرِ «خانه › وبلاگ › نوشته» را در نتیجه‌ی جست‌وجو نشان می‌دهد.
+        JsonObject Crumb(int pos, string name, string item) => new()
+        {
+            ["@type"] = "ListItem",
+            ["position"] = pos,
+            ["name"] = name,
+            ["item"] = item,
+        };
+        var breadcrumb = new JsonObject
+        {
+            ["@type"] = "BreadcrumbList",
+            ["itemListElement"] = new JsonArray(
+                Crumb(1, site["name"].S, $"{baseUrl}/"),
+                Crumb(2, C["copy"]["blog"]["heading"].S, $"{baseUrl}/blog"),
+                Crumb(3, Post.Title, postUrl)),
+        };
+        var doc = new JsonObject
+        {
+            ["@context"] = "https://schema.org",
+            ["@graph"] = new JsonArray(node, breadcrumb),
+        };
+
+        return doc.ToJsonString(new JsonSerializerOptions
         {
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
             TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
