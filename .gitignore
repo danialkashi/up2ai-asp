@@ -376,3 +376,5 @@ packages
 
 # blog image uploads
 src/wwwroot/uploads/
+deploy
+publish
