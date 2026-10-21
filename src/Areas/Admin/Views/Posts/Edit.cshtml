@@ -128,9 +128,19 @@
     const C = window.CKEDITOR;
     const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
+    // هر سطر باید پاراگراف خودش باشد: اگر چند سطر با <br> در یک پاراگراف باشند، دکمه‌ی
+    // فهرست (و تیتر و ترازبندی) روی کل پاراگراف اعمال می‌شود، نه فقط سطرهای انتخاب‌شده.
+    const splitBr = html => html.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (m, attrs, inner) =>
+        /<br\s*\/?>/i.test(inner)
+            ? inner.split(/<br\s*\/?>/i).filter(s => s.trim()).map(s => `<p${attrs}>${s}</p>`).join('')
+            : m);
+    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const bodyField = document.getElementById('body');
+    bodyField.value = splitBr(bodyField.value);
+
     // اگر فایل ویرایشگر لود نشود، همان textarea ساده می‌ماند و فرم همچنان کار می‌کند.
     if (!C) document.getElementById('word-count').textContent = 'ویرایشگر بارگذاری نشد؛ متن را در همین کادر بنویسید.';
-    else C.ClassicEditor.create(document.getElementById('body'), {
+    else C.ClassicEditor.create(bodyField, {
         plugins: [
             C.Essentials, C.Paragraph, C.Heading, C.Autoformat, C.TextTransformation, C.PasteFromOffice,
             C.Bold, C.Italic, C.Underline, C.Strikethrough, C.Subscript, C.Superscript, C.Code, C.RemoveFormat,
@@ -194,6 +204,17 @@
             },
         },
     })
-    .then(editor => { window.editorInstance = editor; })
+    .then(editor => {
+        window.editorInstance = editor;
+        // Paste: هر سطرِ متن ساده یک پاراگراف؛ در HTMLِ چسبانده‌شده هم <br>ها پاراگراف می‌شوند.
+        editor.editing.view.document.on('clipboardInput', (evt, data) => {
+            const html = data.dataTransfer.getData('text/html');
+            const text = data.dataTransfer.getData('text/plain');
+            const out = html
+                ? splitBr(html)
+                : text.split(/\r?\n/).filter(l => l.trim()).map(l => `<p>${esc(l)}</p>`).join('');
+            if (out) data.content = editor.data.htmlProcessor.toView(out);
+        }, { priority: 'high' });
+    })
     .catch(err => console.error('CKEditor initialization error:', err));
 </script>
