@@ -2,11 +2,13 @@
 # (double-click deploy\deploy.bat). Safe to run again for every update.
 
 # ---------------------------------------------------------------- settings
-$SiteName    = 'UP2AI'                 # IIS site name
-$AppPoolName = 'UP2AI'                 # IIS app pool name
-$SitePath    = 'C:\inetpub\up2ai'      # where the published site lives
-$Port        = 80                      # HTTP port for the binding (used only when the site is first created)
-$HostName    = ''                      # e.g. 'up2ai.ir'; empty = any host name
+$SiteName    = 'up2ai.ir'              # IIS site to deploy to
+# If that site already exists, its own folder, app pool, bindings and certificates are used
+# as they are. The values below only matter when the script has to create the site.
+$AppPoolName = 'up2ai.ir'
+$SitePath    = 'C:\inetpub\up2ai.ir'
+$Port        = 80
+$HostName    = 'up2ai.ir'
 # --------------------------------------------------------------------------
 
 $ErrorActionPreference = 'Stop'
@@ -81,26 +83,32 @@ try {
     dotnet publish $Project -c Release -o $Publish --nologo
     if ($LASTEXITCODE -ne 0) { Fail 'dotnet publish failed.' }
 
+    # ------------------------------------------------------- IIS site & pool
+    Step 'Configuring IIS'
+    & $AppCmd list site /name:$SiteName | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        # Existing site: deploy into its folder and reuse its pool; bindings and certificates stay untouched.
+        $SitePath    = [Environment]::ExpandEnvironmentVariables((& $AppCmd list vdir "$SiteName/" /text:physicalPath))
+        $AppPoolName = & $AppCmd list app "$SiteName/" /text:applicationPool
+        Write-Host "Using existing site '$SiteName': $SitePath (app pool '$AppPoolName')"
+        AppCmd set apppool /apppool.name:$AppPoolName /managedRuntimeVersion:
+    } else {
+        Write-Host "Site '$SiteName' not found; creating it at $SitePath"
+        New-Item -ItemType Directory -Force $SitePath | Out-Null
+        & $AppCmd list apppool /name:$AppPoolName | Out-Null
+        if ($LASTEXITCODE -ne 0) { AppCmd add apppool /name:$AppPoolName /managedRuntimeVersion: /managedPipelineMode:Integrated }
+        AppCmd set apppool /apppool.name:$AppPoolName /managedRuntimeVersion: /startMode:AlwaysRunning /processModel.idleTimeout:00:00:00
+        AppCmd add site /name:$SiteName /physicalPath:$SitePath /bindings:"http/*:${Port}:$HostName"
+        AppCmd set app "$SiteName/" /applicationPool:$AppPoolName
+    }
+
     # ------------------------------------------------------- production config
     # Never asks anything: server-only settings live in appsettings.Production.json in the
     # site folder (kept across deploys). Without it, appsettings.json / environment variables apply.
-    New-Item -ItemType Directory -Force $SitePath | Out-Null
     $prodConfig = Join-Path $SitePath 'appsettings.Production.json'
     if (-not (Test-Path $prodConfig)) {
         Write-Host "Note: $prodConfig not found; using the settings from appsettings.json and environment variables." -ForegroundColor Yellow
     }
-
-    # ------------------------------------------------------- IIS site & pool
-    Step 'Configuring IIS'
-    & $AppCmd list apppool /name:$AppPoolName | Out-Null
-    if ($LASTEXITCODE -ne 0) { AppCmd add apppool /name:$AppPoolName /managedRuntimeVersion: /managedPipelineMode:Integrated }
-    AppCmd set apppool /apppool.name:$AppPoolName /managedRuntimeVersion: /startMode:AlwaysRunning /processModel.idleTimeout:00:00:00
-
-    & $AppCmd list site /name:$SiteName | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        AppCmd add site /name:$SiteName /physicalPath:$SitePath /bindings:"http/*:${Port}:$HostName"
-    }
-    AppCmd set app "$SiteName/" /applicationPool:$AppPoolName
 
     # ----------------------------------------------------------------- deploy
     Step 'Stopping site'
@@ -108,6 +116,11 @@ try {
     Set-Content $offline '<!doctype html><meta charset="utf-8"><title>Updating</title><p style="font-family:sans-serif;text-align:center;margin-top:20vh">Updating, back in a moment.</p>'
     & $AppCmd stop apppool /apppool.name:$AppPoolName | Out-Null   # fails harmlessly if already stopped
     for ($i = 0; $i -lt 30 -and (& $AppCmd list apppool /name:$AppPoolName /text:state) -ne 'Stopped'; $i++) { Start-Sleep 1 }
+
+    Step "Backing up current site to $SitePath-backup"
+    # Only the latest backup is kept; copy it back over $SitePath to roll back.
+    robocopy $SitePath "$SitePath-backup" /MIR /NFL /NDL /NJH /NJS /NP /R:1 /W:1 /XF app_offline.htm | Out-Null
+    if ($LASTEXITCODE -ge 8) { Fail "backup failed (robocopy exit $LASTEXITCODE)." }
 
     Step 'Copying files'
     # /MIR mirrors the build, but excluded paths are never deleted: uploaded images, logs, server secrets.
@@ -129,19 +142,29 @@ try {
     AppCmd start apppool /apppool.name:$AppPoolName
     & $AppCmd start site /site.name:$SiteName | Out-Null   # errors harmlessly if already started
     if ((& $AppCmd list site /name:$SiteName /text:state) -ne 'Started') {
-        Fail "IIS site '$SiteName' did not start. Usually another site (e.g. Default Web Site) already uses port ${Port}: set `$HostName or `$Port at the top of deploy.ps1."
+        Fail "IIS site '$SiteName' did not start. Usually another site already uses the same port and host name."
     }
 
     # ------------------------------------------------------------------ check
     Step 'Checking the site responds'
-    $url = "http://localhost:$Port/"
-    $headers = @{}; if ($HostName) { $headers['Host'] = $HostName }
-    $ok = $false
+    # Ask the site through its own binding: plain http on localhost when it has one, else its https address.
+    $bindings = (& $AppCmd list site /name:$SiteName /text:bindings) -split ','
+    $binding  = @($bindings | Where-Object { $_ -like 'http/*' }) + @($bindings | Where-Object { $_ -like 'https/*' }) | Select-Object -First 1
+    $proto, $rest = $binding -split '/', 2
+    $null, $bPort, $bHost = $rest -split ':'
+    $url = if ($proto -eq 'http') { "http://localhost:$bPort/" } else { "https://$(if ($bHost) { $bHost } else { 'localhost' }):$bPort/" }
+    [Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+    $ok = $false; $code = 0
     for ($i = 0; $i -lt 10 -and -not $ok; $i++) {
-        try { $r = Invoke-WebRequest $url -Headers $headers -UseBasicParsing -TimeoutSec 30; $ok = $r.StatusCode -eq 200 }
-        catch { Start-Sleep 3 }
+        $req = [Net.HttpWebRequest]::Create($url)
+        $req.AllowAutoRedirect = $false; $req.Timeout = 30000
+        if ($proto -eq 'http' -and $bHost) { $req.Host = $bHost }
+        try { $resp = $req.GetResponse(); $code = [int]$resp.StatusCode; $resp.Close() }
+        catch [Net.WebException] { if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode } }
+        $ok = $code -ge 200 -and $code -lt 400   # a redirect (e.g. to https) also means the app is up
+        if (-not $ok) { Start-Sleep 3 }
     }
-    if (-not $ok) { Fail "site did not answer 200 at $url. Check Windows Event Viewer > Application for the startup error (often the database connection)." }
+    if (-not $ok) { Fail "site did not respond at $url (last status $code). Check Windows Event Viewer > Application for the startup error (often the database connection)." }
 
     Write-Host "`nDEPLOY SUCCEEDED: $SiteName is running at $url" -ForegroundColor Green
 }
