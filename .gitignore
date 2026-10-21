@@ -373,3 +373,6 @@ packages
 /src/RestApi/Resources
 /src/RestApi/Files
 /src/RestApi/.config
+
+# blog image uploads
+src/wwwroot/uploads/

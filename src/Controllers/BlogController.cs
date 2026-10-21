@@ -104,7 +104,7 @@ public class BlogController : Controller
         ViewData["Content"] = content;
         model.C = content;
         model.Post = post;
-        model.BodyHtml = MiniMarkdown.ToHtml(post.Body);
+        model.BodyHtml = MiniMarkdown.BodyToHtml(post.Body);
 
         var errors = content["copy"]["blog"]["errors"];
         var ip = RequestIp();

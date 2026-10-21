@@ -146,6 +146,33 @@ public class PostsController : Controller
         return RedirectToAction("Edit", new { id = saved.Id });
     }
 
+    private static readonly HashSet<string> ImageExts = new(StringComparer.OrdinalIgnoreCase)
+        { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+
+    /// <summary>Image upload for CKEditor's SimpleUploadAdapter: replies {url} or {error:{message}}.</summary>
+    [HttpPost("/admin/posts/upload-image")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<IActionResult> UploadImage(IFormFile? upload, [FromServices] IWebHostEnvironment env)
+    {
+        static IActionResult Fail(string msg) => new BadRequestObjectResult(new { error = new { message = msg } });
+
+        if (upload is null || upload.Length == 0) return Fail("فایلی فرستاده نشد.");
+        if (upload.Length > 5 * 1024 * 1024) return Fail("حجم تصویر باید کمتر از ۵ مگابایت باشد.");
+        var ext = Path.GetExtension(upload.FileName);
+        if (!ImageExts.Contains(ext) || !upload.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            return Fail("فقط تصویر JPG، PNG، GIF یا WebP مجاز است.");
+
+        // ponytail: files live in wwwroot/uploads on local disk; move to object storage if the app runs on multiple servers.
+        var dir = Path.Combine(env.WebRootPath, "uploads", "blog");
+        Directory.CreateDirectory(dir);
+        var name = Guid.NewGuid().ToString("N") + ext.ToLowerInvariant();
+        await using (var fs = System.IO.File.Create(Path.Combine(dir, name)))
+            await upload.CopyToAsync(fs);
+
+        return Json(new { url = $"/uploads/blog/{name}" });
+    }
+
     /// <summary>Delete a blog post</summary>
     [HttpPost("/admin/posts/{id}/delete")]
     [ValidateAntiForgeryToken]

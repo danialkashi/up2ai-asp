@@ -4,7 +4,20 @@
     var fieldCls = "w-full rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-[14px] text-on-light outline-none transition-colors placeholder:text-on-light-muted focus:border-brand";
 }
 
-<link rel="stylesheet" href="https://cdn.ckeditor.com/ckeditor5/43.0.0/ckeditor5.css" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.ckeditor.com/ckeditor5/43.3.1/ckeditor5.css" crossorigin="anonymous">
+<style>
+    .ck-editor__editable_inline { min-height: 420px; }
+    .ck.ck-editor { border-radius: 0.75rem; }
+    /* Tailwind preflight تیترها و فهرست‌ها را بی‌استایل می‌کند؛ داخل ویرایشگر برشان می‌گردانیم. */
+    .ck-content { line-height: 2; }
+    .ck-content h2 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 .75rem; }
+    .ck-content h3 { font-size: 1.2rem; font-weight: 700; margin: 1.25rem 0 .5rem; }
+    .ck-content h4 { font-size: 1.05rem; font-weight: 700; margin: 1rem 0 .5rem; }
+    .ck-content p { margin: .75rem 0; }
+    .ck-content ul { list-style: disc; padding-inline-start: 1.75rem; }
+    .ck-content ol { list-style: decimal; padding-inline-start: 1.75rem; }
+    .ck-content a { color: #4f46e5; text-decoration: underline; }
+</style>
 
 
 <div class="flex flex-col gap-6">
@@ -62,9 +75,9 @@
 
         <div class="flex flex-col gap-2">
             <label for="body" class="text-[14px] font-medium text-on-light">متن نوشته</label>
-            <div id="editor" style="background: white; border-radius: 0.75rem; border: 1px solid var(--on-light-muted); min-height: 400px; direction: rtl;">@Model.Body</div>
-            <textarea id="body" name="Body" style="display: none;">@Model.Body</textarea>
-            <p class="text-[12.5px] leading-[1.9] text-on-light-muted mt-2">ویرایشگر غنی متن برای نوشتن محتوای بهتر</p>
+            @* CKEditor جای این textarea را می‌گیرد و موقع ارسال فرم خودش مقدار را برمی‌گرداند. *@
+            <textarea id="body" name="Body" rows="16" class="@fieldCls">@Model.Body</textarea>
+            <p id="word-count" class="text-[12.5px] leading-[1.9] text-on-light-muted mt-2"></p>
         </div>
 
         <div class="flex flex-col gap-2">
@@ -107,39 +120,77 @@
     }
 </div>
 
-<script src="https://cdn.ckeditor.com/ckeditor5/43.0.0/ckeditor5.umd.js" crossorigin="anonymous"></script>
+@* نسخه‌ی 43 آخرین نسخه‌ای است که از CDN بدون کلید لایسنس کار می‌کند. *@
+<script src="https://cdn.ckeditor.com/ckeditor5/43.3.1/ckeditor5.umd.js" crossorigin="anonymous"></script>
+<script src="https://cdn.ckeditor.com/ckeditor5/43.3.1/translations/fa.umd.js" crossorigin="anonymous"></script>
 <script>
-    const {
-        ClassicEditor,
-        Essentials,
-        Bold,
-        Italic,
-        Link,
-        Paragraph,
-        BlockQuote,
-        Undo,
-        Heading,
-        List
-    } = window.CKEDITOR;
+    const C = window.CKEDITOR;
+    const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
-    ClassicEditor
-        .create( document.getElementById('editor'), {
-            plugins: [ Essentials, Paragraph, Bold, Italic, Link, List, Heading, BlockQuote, Undo ],
-            toolbar: [ 'heading', '|', 'bold', 'italic', 'link', '|', 'bulletedList', 'numberedList', '|', 'blockQuote', '|', 'undo' ],
-            language: 'fa'
-        } )
-        .then( editor => {
-            window.editorInstance = editor;
-            
-            // On form submit, sync editor content to textarea
-            const form = document.querySelector('form');
-            if (form) {
-                form.addEventListener('submit', function(e) {
-                    document.getElementById('body').value = editor.getData();
-                });
-            }
-        } )
-        .catch( err => {
-            console.error( 'CKEditor initialization error:', err );
-        } );
+    C.ClassicEditor.create(document.getElementById('body'), {
+        plugins: [
+            C.Essentials, C.Paragraph, C.Heading, C.Autoformat, C.TextTransformation, C.PasteFromOffice,
+            C.Bold, C.Italic, C.Underline, C.Strikethrough, C.Subscript, C.Superscript, C.Code, C.RemoveFormat,
+            C.FontSize, C.FontColor, C.FontBackgroundColor, C.Highlight, C.Alignment,
+            C.Link, C.AutoLink, C.List, C.ListProperties, C.Indent, C.IndentBlock,
+            C.BlockQuote, C.CodeBlock, C.HorizontalLine, C.SpecialCharacters, C.SpecialCharactersEssentials,
+            C.Image, C.ImageCaption, C.ImageStyle, C.ImageToolbar, C.ImageUpload, C.ImageResize,
+            C.ImageInsert, C.ImageTextAlternative, C.LinkImage, C.AutoImage, C.SimpleUploadAdapter,
+            C.Table, C.TableToolbar, C.TableProperties, C.TableCellProperties, C.TableCaption, C.TableColumnResize,
+            C.MediaEmbed, C.FindAndReplace, C.SourceEditing, C.WordCount, C.ShowBlocks,
+        ],
+        toolbar: {
+            items: [
+                'undo', 'redo', '|', 'heading', '|',
+                'bold', 'italic', 'underline', 'strikethrough', 'code', 'subscript', 'superscript', 'removeFormat', '|',
+                'fontSize', 'fontColor', 'fontBackgroundColor', 'highlight', '|',
+                'alignment', 'bulletedList', 'numberedList', 'outdent', 'indent', '|',
+                'link', 'insertImage', 'insertTable', 'mediaEmbed', 'blockQuote', 'codeBlock', 'horizontalLine', 'specialCharacters', '|',
+                'findAndReplace', 'showBlocks', 'sourceEditing',
+            ],
+            shouldNotGroupWhenFull: false,
+        },
+        language: { ui: 'fa', content: 'fa' },
+        translations: [ window.CKEDITOR_TRANSLATIONS ],
+        heading: {
+            options: [
+                { model: 'paragraph', title: 'پاراگراف', class: 'ck-heading_paragraph' },
+                { model: 'heading2', view: 'h2', title: 'تیتر ۲', class: 'ck-heading_heading2' },
+                { model: 'heading3', view: 'h3', title: 'تیتر ۳', class: 'ck-heading_heading3' },
+                { model: 'heading4', view: 'h4', title: 'تیتر ۴', class: 'ck-heading_heading4' },
+            ],
+        },
+        image: {
+            toolbar: [ 'imageStyle:inline', 'imageStyle:block', 'imageStyle:side', '|',
+                       'toggleImageCaption', 'imageTextAlternative', 'linkImage', '|', 'resizeImage' ],
+        },
+        table: {
+            contentToolbar: [ 'tableColumn', 'tableRow', 'mergeTableCells', 'tableProperties', 'tableCellProperties', 'toggleTableCaption' ],
+        },
+        list: { properties: { styles: true, startIndex: true, reversed: true } },
+        link: { addTargetToExternalLinks: true, defaultProtocol: 'https://' },
+        // previewsInData: خروجی خودِ iframe را دارد، پس ویدیو روی سایت هم بدون جاوااسکریپت پخش می‌شود.
+        mediaEmbed: { previewsInData: true },
+        codeBlock: {
+            languages: [
+                { language: 'plaintext', label: 'متن ساده' },
+                { language: 'csharp', label: 'C#' }, { language: 'javascript', label: 'JavaScript' },
+                { language: 'python', label: 'Python' }, { language: 'html', label: 'HTML' },
+                { language: 'css', label: 'CSS' }, { language: 'sql', label: 'SQL' },
+                { language: 'bash', label: 'Bash' }, { language: 'json', label: 'JSON' },
+            ],
+        },
+        simpleUpload: {
+            uploadUrl: '/admin/posts/upload-image',
+            headers: { 'RequestVerificationToken': token },
+        },
+        wordCount: {
+            onUpdate: s => {
+                document.getElementById('word-count').textContent =
+                    `${s.words.toLocaleString('fa-IR')} کلمه · ${s.characters.toLocaleString('fa-IR')} نویسه`;
+            },
+        },
+    })
+    .then(editor => { window.editorInstance = editor; })
+    .catch(err => console.error('CKEditor initialization error:', err));
 </script>
