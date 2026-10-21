@@ -1,5 +1,5 @@
 # One-click deploy of UP2AI to IIS. Run on the IIS server from a clone of this repo
-# (double-click deploy.bat next to this file). Safe to run again for every update.
+# (double-click deploy.bat in the repo root). Safe to run again for every update.
 
 # ---------------------------------------------------------------- settings
 $SiteName    = 'UP2AI'                 # IIS site name
@@ -10,7 +10,7 @@ $HostName    = ''                      # e.g. 'up2ai.ir'; empty = any host name
 # --------------------------------------------------------------------------
 
 $ErrorActionPreference = 'Stop'
-$RepoRoot = Split-Path -Parent $PSScriptRoot
+$RepoRoot = $PSScriptRoot
 $Project  = Join-Path $RepoRoot 'src\web.csproj'
 $Publish  = Join-Path $env:TEMP 'up2ai-publish'
 $AppCmd   = Join-Path $env:windir 'System32\inetsrv\appcmd.exe'
