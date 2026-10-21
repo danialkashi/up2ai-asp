@@ -1,5 +1,5 @@
 # One-click deploy of UP2AI to IIS. Run on the IIS server from a clone of this repo
-# (double-click deploy.bat in the repo root). Safe to run again for every update.
+# (double-click deploy\deploy.bat). Safe to run again for every update.
 
 # ---------------------------------------------------------------- settings
 $SiteName    = 'UP2AI'                 # IIS site name
@@ -10,7 +10,7 @@ $HostName    = ''                      # e.g. 'up2ai.ir'; empty = any host name
 # --------------------------------------------------------------------------
 
 $ErrorActionPreference = 'Stop'
-$RepoRoot = $PSScriptRoot
+$RepoRoot = Split-Path -Parent $PSScriptRoot
 $Project  = Join-Path $RepoRoot 'src\web.csproj'
 $Publish  = Join-Path $env:TEMP 'up2ai-publish'
 $AppCmd   = Join-Path $env:windir 'System32\inetsrv\appcmd.exe'
@@ -19,16 +19,60 @@ function Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 function Fail($msg) { Write-Host "`nDEPLOY FAILED: $msg" -ForegroundColor Red; exit 1 }
 function AppCmd { & $AppCmd @args; if ($LASTEXITCODE -ne 0) { Fail "appcmd $($args -join ' ') (exit $LASTEXITCODE)" } }
 
+$DotnetDir = Join-Path $env:ProgramFiles 'dotnet'
+function HasHostingBundle {
+    # ANCM V2 (the IIS module) plus the ASP.NET Core 10 runtime.
+    (Test-Path (Join-Path $env:ProgramFiles 'IIS\Asp.Net Core Module\V2\aspnetcorev2.dll')) -and
+    @(Get-ChildItem (Join-Path $DotnetDir 'shared\Microsoft.AspNetCore.App') -Filter '10.*' -ErrorAction SilentlyContinue).Count -gt 0
+}
+function HasSdk {
+    if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { return $false }
+    @(dotnet --list-sdks | Where-Object { $_ -like '10.*' }).Count -gt 0
+}
+function Install-FromMicrosoft($name, $url) {
+    Step "Installing $name"
+    $exe = Join-Path $env:TEMP ([IO.Path]::GetFileName($url))
+    try { Invoke-WebRequest $url -OutFile $exe -UseBasicParsing }
+    catch { Fail "could not download $name from $url ($($_.Exception.Message)). Check the server's internet access, or install it by hand." }
+    $p = Start-Process $exe -ArgumentList '/install', '/quiet', '/norestart' -Wait -PassThru
+    Remove-Item $exe -Force -ErrorAction SilentlyContinue
+    if ($p.ExitCode -notin 0, 1641, 3010) { Fail "$name installer failed (exit $($p.ExitCode))." }
+    # pick up dotnet in this session without reopening the window
+    if ($env:Path -notlike "*$DotnetDir*") { $env:Path = "$DotnetDir;$env:Path" }
+}
+
 try {
     # ---------------------------------------------------------- prerequisites
     Step 'Checking prerequisites'
     $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     if (-not $admin) { Fail 'run as Administrator (deploy.bat does this for you).' }
-    if (-not (Test-Path $AppCmd)) { Fail 'IIS is not installed (appcmd.exe not found).' }
-    if (-not (Test-Path (Join-Path $env:windir 'System32\inetsrv\aspnetcorev2.dll'))) {
-        Fail 'ASP.NET Core Hosting Bundle is not installed. Install the .NET 10 Hosting Bundle, then run again.'
+    # Anything missing is downloaded from Microsoft and installed silently, then re-checked.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $ProgressPreference = 'SilentlyContinue'   # Invoke-WebRequest is very slow with the progress bar on
+
+    if (-not (Test-Path $AppCmd)) {
+        Step 'Installing IIS (Windows feature)'
+        if (Get-Command Install-WindowsFeature -ErrorAction SilentlyContinue) {
+            Install-WindowsFeature Web-Server, Web-Mgmt-Console | Out-Host            # Windows Server
+        } else {
+            Enable-WindowsOptionalFeature -Online -NoRestart -All `
+                -FeatureName IIS-WebServerRole, IIS-WebServer, IIS-ManagementConsole | Out-Host   # Windows 10/11
+        }
+        if (-not (Test-Path $AppCmd)) { Fail 'IIS could not be installed automatically. Install IIS from Server Manager, then run again.' }
     }
-    if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { Fail '.NET 10 SDK is not installed (dotnet not found).' }
+
+    if (-not (HasHostingBundle)) {
+        Install-FromMicrosoft '.NET 10 Hosting Bundle' 'https://aka.ms/dotnet/10.0/dotnet-hosting-win.exe'
+        Step 'Restarting IIS so it loads the ASP.NET Core module'
+        net stop was /y | Out-Null
+        net start w3svc | Out-Null
+        if (-not (HasHostingBundle)) { Fail '.NET 10 Hosting Bundle is still missing after install. Restart the server and run again.' }
+    }
+
+    if (-not (HasSdk)) {
+        Install-FromMicrosoft '.NET 10 SDK' 'https://aka.ms/dotnet/10.0/dotnet-sdk-win-x64.exe'
+        if (-not (HasSdk)) { Fail '.NET 10 SDK is still missing after install. Restart the server and run again.' }
+    }
 
     # ------------------------------------------------------------------ build
     # (deploy.bat already pulled the latest code)

@@ -9,7 +9,7 @@ if %errorlevel% neq 0 (
 rem Pull first, so the newest version of deploy.ps1 itself is what runs.
 echo ==^> Pulling latest code
 rem safe.directory: running as Administrator on a clone owned by another user otherwise fails as "dubious ownership".
-git -c safe.directory=* -C "%~dp0." pull --ff-only
+git -c safe.directory=* -C "%~dp0.." pull --ff-only
 if %errorlevel% neq 0 (
     echo.
     echo DEPLOY FAILED: git pull failed ^(is git installed? local changes or diverged branch?^)
