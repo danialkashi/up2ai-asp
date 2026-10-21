@@ -82,31 +82,12 @@ try {
     if ($LASTEXITCODE -ne 0) { Fail 'dotnet publish failed.' }
 
     # ------------------------------------------------------- production config
-    # Secrets live only on the server, in appsettings.Production.json; created once on first deploy.
+    # Never asks anything: server-only settings live in appsettings.Production.json in the
+    # site folder (kept across deploys). Without it, appsettings.json / environment variables apply.
     New-Item -ItemType Directory -Force $SitePath | Out-Null
     $prodConfig = Join-Path $SitePath 'appsettings.Production.json'
     if (-not (Test-Path $prodConfig)) {
-        Step 'First deploy: creating appsettings.Production.json'
-        $dbHost = Read-Host 'PostgreSQL host [localhost]'; if (-not $dbHost) { $dbHost = 'localhost' }
-        $dbPort = Read-Host 'PostgreSQL port [5432]';      if (-not $dbPort) { $dbPort = '5432' }
-        $dbName = Read-Host 'Database name [up2ai]';       if (-not $dbName) { $dbName = 'up2ai' }
-        $dbUser = Read-Host 'Database user'
-        $dbPass = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR((Read-Host 'Database password' -AsSecureString)))
-        $adPass = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR((Read-Host 'Admin panel password (user: admin)' -AsSecureString)))
-        if ($adPass.Length -lt 8) { Fail 'admin password must be at least 8 characters.' }
-
-        # Same format as AdminAuth.HashPassword: pbkdf2:<iterations>:<salt hex>:<key hex>, SHA-256, 32-byte key.
-        $salt = New-Object byte[] 16
-        [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($salt)
-        $kdf  = New-Object Security.Cryptography.Rfc2898DeriveBytes($adPass, $salt, 210000, [Security.Cryptography.HashAlgorithmName]::SHA256)
-        $hex  = { param($b) -join ($b | ForEach-Object { $_.ToString('x2') }) }
-        $hash = "pbkdf2:210000:$(& $hex $salt):$(& $hex $kdf.GetBytes(32))"
-
-        $cfg = [ordered]@{
-            ConnectionStrings = @{ DefaultConnection = "Host=$dbHost;Port=$dbPort;Database=$dbName;Username=$dbUser;Password=$dbPass" }
-            Admin             = @{ InitialPasswordHash = $hash }
-        }
-        $cfg | ConvertTo-Json -Depth 5 | Set-Content -Path $prodConfig -Encoding UTF8
+        Write-Host "Note: $prodConfig not found; using the settings from appsettings.json and environment variables." -ForegroundColor Yellow
     }
 
     # ------------------------------------------------------- IIS site & pool
@@ -139,7 +120,9 @@ try {
     New-Item -ItemType Directory -Force $uploads | Out-Null
     icacls $SitePath /grant "IIS AppPool\${AppPoolName}:(OI)(CI)RX" /Q | Out-Null
     icacls $uploads  /grant "IIS AppPool\${AppPoolName}:(OI)(CI)M"  /Q | Out-Null
-    icacls $prodConfig /inheritance:r /grant:r "IIS AppPool\${AppPoolName}:R" "Administrators:F" "SYSTEM:F" /Q | Out-Null
+    if (Test-Path $prodConfig) {
+        icacls $prodConfig /inheritance:r /grant:r "IIS AppPool\${AppPoolName}:R" "Administrators:F" "SYSTEM:F" /Q | Out-Null
+    }
 
     Step 'Starting site'
     Remove-Item $offline -Force
