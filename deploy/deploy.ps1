@@ -7,7 +7,6 @@ $AppPoolName = 'UP2AI'                 # IIS app pool name
 $SitePath    = 'C:\inetpub\up2ai'      # where the published site lives
 $Port        = 80                      # HTTP port for the binding (used only when the site is first created)
 $HostName    = ''                      # e.g. 'up2ai.ir'; empty = any host name
-$GitPull     = $true                   # pull the latest code before building
 # --------------------------------------------------------------------------
 
 $ErrorActionPreference = 'Stop'
@@ -31,13 +30,8 @@ try {
     }
     if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { Fail '.NET 10 SDK is not installed (dotnet not found).' }
 
-    # ------------------------------------------------------------ get & build
-    if ($GitPull -and (Test-Path (Join-Path $RepoRoot '.git')) -and (Get-Command git -ErrorAction SilentlyContinue)) {
-        Step 'Pulling latest code'
-        git -C $RepoRoot pull --ff-only
-        if ($LASTEXITCODE -ne 0) { Fail 'git pull failed (local changes or diverged branch).' }
-    }
-
+    # ------------------------------------------------------------------ build
+    # (deploy.bat already pulled the latest code)
     Step 'Publishing (Release)'
     if (Test-Path $Publish) { Remove-Item $Publish -Recurse -Force }
     dotnet publish $Project -c Release -o $Publish --nologo
