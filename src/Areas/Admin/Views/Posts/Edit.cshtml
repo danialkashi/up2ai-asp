@@ -5,18 +5,21 @@
 }
 
 <link rel="stylesheet" href="/lib/ckeditor5/ckeditor5.css">
+@* همان استایل‌های صفحه‌ی عمومی نوشته، تا پیش‌نمایش دقیقاً مثل سایت دیده شود. *@
+<link rel="stylesheet" href="~/css/prose.css" asp-append-version="true" />
+<link rel="stylesheet" href="/lib/ckeditor5/ckeditor5-content.css">
 <style>
     .ck-editor__editable_inline { min-height: 420px; }
     .ck.ck-editor { border-radius: 0.75rem; }
     /* Tailwind preflight تیترها و فهرست‌ها را بی‌استایل می‌کند؛ داخل ویرایشگر برشان می‌گردانیم. */
-    .ck-content { line-height: 2; }
-    .ck-content h2 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 .75rem; }
-    .ck-content h3 { font-size: 1.2rem; font-weight: 700; margin: 1.25rem 0 .5rem; }
-    .ck-content h4 { font-size: 1.05rem; font-weight: 700; margin: 1rem 0 .5rem; }
-    .ck-content p { margin: .75rem 0; }
-    .ck-content ul { list-style: disc; padding-inline-start: 1.75rem; }
-    .ck-content ol { list-style: decimal; padding-inline-start: 1.75rem; }
-    .ck-content a { color: #4f46e5; text-decoration: underline; }
+    .ck-editor__editable { line-height: 2; }
+    .ck-editor__editable h2 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 .75rem; }
+    .ck-editor__editable h3 { font-size: 1.2rem; font-weight: 700; margin: 1.25rem 0 .5rem; }
+    .ck-editor__editable h4 { font-size: 1.05rem; font-weight: 700; margin: 1rem 0 .5rem; }
+    .ck-editor__editable p { margin: .75rem 0; }
+    .ck-editor__editable ul { list-style: disc; padding-inline-start: 1.75rem; }
+    .ck-editor__editable ol { list-style: decimal; padding-inline-start: 1.75rem; }
+    .ck-editor__editable a { color: #4f46e5; text-decoration: underline; }
 </style>
 
 
@@ -108,17 +111,14 @@
         </div>
     </form>
 
-    @if (Model.PreviewHtml.Length > 0)
-    {
-        @* پیش‌نمایشِ سرور-رندر: بعد از هر ذخیره تازه می‌شود. برای پیش‌نمایشِ
-           زنده حین تایپ، جاوااسکریپت لازم بود و پنل عمداً بدون آن کار
-           می‌کند. *@
-        <section class="rounded-2xl border border-hairline bg-card p-6">
-            <h2 class="text-[16px] font-bold text-on-light">پیش‌نمایش متن</h2>
-            <p class="mt-1 text-[12.5px] text-on-light-muted">همان‌طور که روی سایت دیده می‌شود (بعد از آخرین ذخیره).</p>
-            <div class="mt-4 border-t border-hairline pt-2">@Html.Raw(Model.PreviewHtml)</div>
-        </section>
-    }
+    @* پیش‌نمایش با همان کلاس‌ها و استایل‌های صفحه‌ی عمومی نوشته؛ حین تایپ زنده به‌روز می‌شود. *@
+    <section class="rounded-2xl border border-hairline bg-card p-6">
+        <h2 class="text-[16px] font-bold text-on-light">پیش‌نمایش متن</h2>
+        <p class="mt-1 text-[12.5px] text-on-light-muted">همان‌طور که روی سایت دیده می‌شود.</p>
+        <div class="mt-4 border-t border-hairline pt-2">
+            <div id="preview" class="mt-2 space-y-5 overflow-x-auto break-words text-[15px] leading-[2.1] text-on-light prose-content ck-content" dir="rtl">@Html.Raw(Model.PreviewHtml)</div>
+        </div>
+    </section>
 </div>
 
 @* فایل‌های CKEditor 43.3.1 داخل خودِ پروژه (wwwroot/lib) هستند، نه CDN؛ cdn.ckeditor.com از ایران در دسترس نیست. *@
@@ -206,6 +206,12 @@
     })
     .then(editor => {
         window.editorInstance = editor;
+        const preview = document.getElementById('preview');
+        let previewTimer;
+        editor.model.document.on('change:data', () => {
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(() => { preview.innerHTML = editor.getData(); }, 300);
+        });
         // Paste: هر سطرِ متن ساده یک پاراگراف؛ در HTMLِ چسبانده‌شده هم <br>ها پاراگراف می‌شوند.
         editor.editing.view.document.on('clipboardInput', (evt, data) => {
             const html = data.dataTransfer.getData('text/html');
