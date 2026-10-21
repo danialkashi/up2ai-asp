@@ -376,5 +376,9 @@ packages
 
 # blog image uploads
 src/wwwroot/uploads/
-deploy
-publish
+# publish output (the deploy scripts themselves stay tracked)
+**/deploy/*
+!/deploy/deploy.bat
+!/deploy/deploy.ps1
+!/deploy/README.md
+publish/

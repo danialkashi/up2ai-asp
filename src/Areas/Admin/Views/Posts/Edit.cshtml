@@ -76,7 +76,8 @@
         <div class="flex flex-col gap-2">
             <label for="body" class="text-[14px] font-medium text-on-light">متن نوشته</label>
             @* CKEditor جای این textarea را می‌گیرد و موقع ارسال فرم خودش مقدار را برمی‌گرداند. *@
-            <textarea id="body" name="Body" rows="16" class="@fieldCls">@Model.Body</textarea>
+            @* EditorHtml: نوشته‌های قدیمیِ Markdown به HTML تبدیل شده‌اند تا در ویرایشگر درست دیده شوند. *@
+            <textarea id="body" name="Body" rows="16" class="@fieldCls">@(Model.EditorHtml.Length > 0 ? Model.EditorHtml : Model.Body)</textarea>
             <p id="word-count" class="text-[12.5px] leading-[1.9] text-on-light-muted mt-2"></p>
         </div>
 
